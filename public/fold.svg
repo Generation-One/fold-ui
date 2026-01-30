@@ -1,0 +1,14 @@
+<svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="holoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00d4ff" />
+      <stop offset="50%" stop-color="#8b5cf6" />
+      <stop offset="100%" stop-color="#ff00aa" />
+    </linearGradient>
+  </defs>
+  <path d="M18 4L32 12V24L18 32L4 24V12L18 4Z" fill="none" stroke="url(#holoGradient)" stroke-width="1.5"/>
+  <path d="M18 4V18L4 12" fill="none" stroke="url(#holoGradient)" stroke-width="1.5" opacity="0.5"/>
+  <path d="M18 4V18L32 12" fill="none" stroke="url(#holoGradient)" stroke-width="1.5" opacity="0.5"/>
+  <path d="M18 18V32L4 24" fill="none" stroke="url(#holoGradient)" stroke-width="1.5" opacity="0.5"/>
+  <path d="M18 18V32L32 24" fill="none" stroke="url(#holoGradient)" stroke-width="1.5" opacity="0.5"/>
+</svg>
