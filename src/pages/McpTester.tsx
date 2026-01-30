@@ -169,6 +169,14 @@ export function McpTester() {
     }
   };
 
+  // Auto-connect on mount if token is available
+  useEffect(() => {
+    if (token && status === 'disconnected') {
+      connect();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);  // Only run on mount
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
