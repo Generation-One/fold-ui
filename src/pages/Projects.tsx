@@ -4,10 +4,14 @@ import useSWR, { mutate } from 'swr';
 import { api } from '../lib/api';
 import type { Project } from '../lib/api';
 import { Modal, EmptyState } from '../components/ui';
+import { RepositoryManager } from '../components/RepositoryManager';
+import { ProjectSettings } from '../components/ProjectSettings';
 import styles from './Projects.module.css';
 
 export function Projects() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [detailTab, setDetailTab] = useState<'repositories' | 'settings'>('repositories');
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -103,6 +107,8 @@ export function Projects() {
             <motion.div
               key={project.id}
               className={styles.projectCard}
+              onClick={() => setSelectedProjectId(project.id)}
+              style={{ cursor: 'pointer' }}
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.2 }}
@@ -152,6 +158,60 @@ export function Projects() {
           ))}
         </div>
       )}
+
+      {/* Project Detail Modal */}
+      <Modal
+        isOpen={!!selectedProjectId}
+        onClose={() => {
+          setSelectedProjectId(null);
+          setDetailTab('repositories');
+        }}
+        title="Project Details"
+        wide
+      >
+        {selectedProjectId && (
+          <div className={styles.detailContent}>
+            {projects?.find(p => p.id === selectedProjectId) && (
+              <>
+                <div className={styles.detailHeader}>
+                  <div>
+                    <h2 className={styles.detailTitle}>
+                      {projects?.find(p => p.id === selectedProjectId)?.name}
+                    </h2>
+                    <p className={styles.detailSlug}>
+                      {projects?.find(p => p.id === selectedProjectId)?.slug}
+                    </p>
+                  </div>
+                </div>
+                {projects?.find(p => p.id === selectedProjectId)?.description && (
+                  <p className={styles.detailDescription}>
+                    {projects?.find(p => p.id === selectedProjectId)?.description}
+                  </p>
+                )}
+                <div className={styles.detailTabs}>
+                  <button
+                    className={`${styles.detailTab} ${detailTab === 'repositories' ? styles.active : ''}`}
+                    onClick={() => setDetailTab('repositories')}
+                  >
+                    Repositories
+                  </button>
+                  <button
+                    className={`${styles.detailTab} ${detailTab === 'settings' ? styles.active : ''}`}
+                    onClick={() => setDetailTab('settings')}
+                  >
+                    Settings
+                  </button>
+                </div>
+                {detailTab === 'repositories' ? (
+                  <RepositoryManager projectId={selectedProjectId} />
+                ) : (
+                  <ProjectSettings projectId={selectedProjectId} />
+                )}
+              </>
+            )}
+          </div>
+        )}
+      </Modal>
 
       {/* Create Modal */}
       <Modal

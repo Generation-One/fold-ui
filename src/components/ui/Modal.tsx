@@ -8,9 +8,10 @@ interface ModalProps {
   title: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
+  wide?: boolean;
 }
 
-export function Modal({ isOpen, onClose, title, children, footer }: ModalProps) {
+export function Modal({ isOpen, onClose, title, children, footer, wide }: ModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -46,7 +47,7 @@ export function Modal({ isOpen, onClose, title, children, footer }: ModalProps) 
           transition={{ duration: 0.2 }}
         >
           <motion.div
-            className={styles.modal}
+            className={`${styles.modal} ${wide ? styles.modalWide : ''}`}
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}

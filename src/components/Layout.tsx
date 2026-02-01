@@ -4,6 +4,8 @@ import { motion } from 'framer-motion';
 import useSWR from 'swr';
 import { api } from '../lib/api';
 import { useAuth } from '../stores/auth';
+import { useProject } from '../stores/project';
+import { ProjectSelector } from './ui/ProjectSelector';
 import styles from './Layout.module.css';
 
 const navItems = [
@@ -94,6 +96,7 @@ const icons: Record<string, ReactNode> = {
 export function Layout() {
   const location = useLocation();
   const { isAuthenticated, clearAuth } = useAuth();
+  const { selectedProjectId, selectProject } = useProject();
 
   const { data: status } = useSWR(
     'status',
@@ -140,6 +143,14 @@ export function Layout() {
             <div className={styles.logoSubtitle}>Holographic Memory</div>
           </div>
         </Link>
+
+        <div className={styles.headerCenter}>
+          <ProjectSelector
+            value={selectedProjectId}
+            onChange={selectProject}
+            placeholder="Select a project..."
+          />
+        </div>
 
         <div className={styles.headerStatus}>
           <div className={styles.statusIndicator}>

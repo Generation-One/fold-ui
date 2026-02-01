@@ -81,6 +81,10 @@
   box-shadow: var(--shadow-lg);
 }
 
+.modalWide {
+  max-width: 800px;
+}
+
 .modalHeader {
   display: flex;
   align-items: center;

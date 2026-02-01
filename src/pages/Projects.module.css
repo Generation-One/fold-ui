@@ -247,3 +247,68 @@
   font-size: 0.8rem;
   color: var(--status-error);
 }
+
+/* Project Detail Modal */
+.detailContent {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.detailHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.detailTitle {
+  font-family: 'Instrument Serif', serif;
+  font-size: 1.5rem;
+  font-weight: 400;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.5rem;
+  color: var(--text-primary);
+}
+
+.detailSlug {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+}
+
+.detailDescription {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+/* Detail Tabs */
+.detailTabs {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1rem;
+}
+
+.detailTab {
+  padding: 0.875rem 1.25rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: all 0.2s var(--ease-out-expo);
+}
+
+.detailTab:hover {
+  color: var(--text-primary);
+}
+
+.detailTab.active {
+  color: var(--text-primary);
+  border-bottom-color: var(--holo-cyan);
+}
+
+.divider {
+  height: 1px;
+  background: var(--border);
+}

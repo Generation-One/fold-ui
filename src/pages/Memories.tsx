@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import useSWR, { mutate } from 'swr';
 import { api } from '../lib/api';
+import { useProject } from '../stores/project';
 import type { Memory, Project } from '../lib/api';
-import { Modal, EmptyState, TypeBadge, ProjectSelector, Pagination } from '../components/ui';
+import { Modal, EmptyState, TypeBadge, Pagination } from '../components/ui';
 import type { MemoryType } from '../components/ui';
 import styles from './Memories.module.css';
 
@@ -11,7 +12,8 @@ const MEMORY_TYPES: MemoryType[] = ['codebase', 'session', 'spec', 'decision', '
 const ITEMS_PER_PAGE = 20;
 
 export function Memories() {
-  const [selectedProject, setSelectedProject] = useState<string | null>(null);
+  const { selectedProjectId } = useProject();
+  const selectedProject = selectedProjectId;
   const [selectedType, setSelectedType] = useState<MemoryType | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -121,20 +123,8 @@ export function Memories() {
       </div>
 
       {/* Filters */}
-      <div className={styles.filters}>
-        <div className={styles.filterGroup}>
-          <span className={styles.filterLabel}>Project</span>
-          <ProjectSelector
-            value={selectedProject}
-            onChange={(id) => {
-              setSelectedProject(id);
-              setCurrentPage(1);
-            }}
-            placeholder="Select a project..."
-          />
-        </div>
-
-        {selectedProject && (
+      {selectedProject && (
+        <div className={styles.filters}>
           <div className={styles.filterGroup}>
             <span className={styles.filterLabel}>Type</span>
             <div className={styles.typeFilters}>
@@ -161,8 +151,8 @@ export function Memories() {
               ))}
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Content */}
       {!selectedProject ? (

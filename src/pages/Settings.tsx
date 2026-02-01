@@ -1,13 +1,16 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import useSWR from 'swr';
+import useSWR, { mutate } from 'swr';
 import { api } from '../lib/api';
+import type { LLMProvider, LLMProviderCreateRequest, EmbeddingProvider, EmbeddingProviderCreateRequest } from '../lib/api';
 import { useAuth } from '../stores/auth';
+import { Modal } from '../components/ui';
 import styles from './Settings.module.css';
 
 export function Settings() {
   const { token, isAuthenticated, setToken, clearAuth, bootstrap, error } = useAuth();
-  const [activeTab, setActiveTab] = useState<'token' | 'bootstrap'>('token');
+  const [mainTab, setMainTab] = useState<'authentication' | 'providers'>('authentication');
+  const [authTab, setAuthTab] = useState<'token' | 'bootstrap'>('token');
 
   // Token form
   const [tokenInput, setTokenInput] = useState(token || '');
@@ -21,6 +24,24 @@ export function Settings() {
   const [bootstrapResult, setBootstrapResult] = useState<string | null>(null);
 
   const { data: providers } = useSWR('auth-providers', () => api.getAuthProviders());
+
+  // Provider management
+  const [providerTab, setProviderTab] = useState<'llm' | 'embedding'>('llm');
+  const [isCreateProviderOpen, setIsCreateProviderOpen] = useState(false);
+  const [editingProvider, setEditingProvider] = useState<LLMProvider | EmbeddingProvider | null>(null);
+  const [testingProvider, setTestingProvider] = useState<string | null>(null);
+  const [providerError, setProviderError] = useState<string | null>(null);
+  const [providerSuccess, setProviderSuccess] = useState<string | null>(null);
+
+  const { data: llmProviders, error: llmError } = useSWR<LLMProvider[]>(
+    'llm-providers',
+    () => api.listLLMProviders()
+  );
+
+  const { data: embeddingProviders, error: embeddingError } = useSWR<EmbeddingProvider[]>(
+    'embedding-providers',
+    () => api.listEmbeddingProviders()
+  );
 
   const handleSaveToken = () => {
     setToken(tokenInput);
@@ -46,6 +67,147 @@ export function Settings() {
     }
   };
 
+  const handleCreateProvider = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setProviderError(null);
+    setProviderSuccess(null);
+
+    const formData = new FormData(e.currentTarget);
+
+    try {
+      if (providerTab === 'llm') {
+        // Build config object from form fields
+        const config: Record<string, any> = {};
+        const model = formData.get('model') as string;
+        if (model) config.model = model;
+
+        const data: LLMProviderCreateRequest = {
+          name: formData.get('name') as 'gemini' | 'openai' | 'anthropic' | 'openrouter',
+          auth_type: formData.get('auth_type') as 'api_key' | 'oauth',
+          api_key: formData.get('api_key') as string || undefined,
+          priority: formData.get('priority') ? Number(formData.get('priority')) : undefined,
+          enabled: formData.get('enabled') === 'on',
+          config: Object.keys(config).length > 0 ? config : undefined,
+        };
+
+        if (editingProvider) {
+          await api.updateLLMProvider(editingProvider.id, data);
+          setProviderSuccess('LLM provider updated successfully');
+        } else {
+          await api.createLLMProvider(data);
+          setProviderSuccess('LLM provider created successfully');
+        }
+        mutate('llm-providers');
+      } else {
+        // Build config object from form fields
+        const config: Record<string, any> = {};
+        const model = formData.get('model') as string;
+        if (model) config.model = model;
+        const dimension = formData.get('dimension') as string;
+        if (dimension) config.dimension = Number(dimension);
+
+        const data: EmbeddingProviderCreateRequest = {
+          name: formData.get('name') as 'gemini' | 'openai',
+          auth_type: 'api_key',
+          api_key: formData.get('api_key') as string,
+          priority: formData.get('priority') ? Number(formData.get('priority')) : undefined,
+          enabled: formData.get('enabled') === 'on',
+          config: Object.keys(config).length > 0 ? config : undefined,
+        };
+
+        if (editingProvider) {
+          await api.updateEmbeddingProvider(editingProvider.id, data);
+          setProviderSuccess('Embedding provider updated successfully');
+        } else {
+          await api.createEmbeddingProvider(data);
+          setProviderSuccess('Embedding provider created successfully');
+        }
+        mutate('embedding-providers');
+      }
+
+      setIsCreateProviderOpen(false);
+      setEditingProvider(null);
+      (e.target as HTMLFormElement).reset();
+      setTimeout(() => setProviderSuccess(null), 3000);
+    } catch (err) {
+      setProviderError(err instanceof Error ? err.message : 'Failed to save provider');
+    }
+  };
+
+  const handleDeleteProvider = async (id: string, type: 'llm' | 'embedding') => {
+    if (!confirm('Delete this provider? This action cannot be undone.')) return;
+
+    setProviderError(null);
+
+    try {
+      if (type === 'llm') {
+        await api.deleteLLMProvider(id);
+        mutate('llm-providers');
+      } else {
+        await api.deleteEmbeddingProvider(id);
+        mutate('embedding-providers');
+      }
+      setProviderSuccess('Provider deleted successfully');
+      setTimeout(() => setProviderSuccess(null), 3000);
+    } catch (err) {
+      setProviderError(err instanceof Error ? err.message : 'Failed to delete provider');
+    }
+  };
+
+  const handleTestProvider = async (id: string, type: 'llm' | 'embedding') => {
+    setTestingProvider(id);
+    setProviderError(null);
+
+    try {
+      const result = type === 'llm'
+        ? await api.testLLMProvider(id)
+        : await api.testEmbeddingProvider(id);
+
+      if (result.success) {
+        let message = result.message;
+        if (result.latency_ms) {
+          message += ` (${result.latency_ms}ms)`;
+        }
+        if (result.response_preview) {
+          message += ` - ${result.response_preview}`;
+        }
+        setProviderSuccess(message);
+        setTimeout(() => setProviderSuccess(null), 5000);
+      } else {
+        let errorMsg = result.message;
+        if (result.error_code) {
+          errorMsg += ` (${result.error_code})`;
+        }
+        if (result.error_details) {
+          errorMsg += `: ${result.error_details}`;
+        }
+        setProviderError(errorMsg);
+      }
+    } catch (err) {
+      setProviderError(err instanceof Error ? err.message : 'Failed to test connection');
+    } finally {
+      setTestingProvider(null);
+    }
+  };
+
+  const handleOAuthInit = () => {
+    // Redirect to OAuth authorization URL
+    const oauthUrl = api.getProviderOAuthUrl('llm', 'anthropic', 'console');
+    window.location.href = oauthUrl;
+  };
+
+  const openCreateModal = () => {
+    setEditingProvider(null);
+    setIsCreateProviderOpen(true);
+    setProviderError(null);
+  };
+
+  const openEditModal = (provider: LLMProvider | EmbeddingProvider) => {
+    setEditingProvider(provider);
+    setIsCreateProviderOpen(true);
+    setProviderError(null);
+  };
+
   return (
     <>
       <div className={styles.pageHeader}>
@@ -53,14 +215,33 @@ export function Settings() {
         <p className={styles.pageSubtitle}>Configure authentication and API access</p>
       </div>
 
-      <div className={styles.container}>
-        {/* Auth Status Card */}
-        <motion.div
-          className={styles.card}
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+      {/* Main Tabs */}
+      <div className={styles.mainTabs}>
+        <button
+          className={`${styles.mainTab} ${mainTab === 'authentication' ? styles.active : ''}`}
+          onClick={() => setMainTab('authentication')}
         >
+          Authentication
+        </button>
+        <button
+          className={`${styles.mainTab} ${mainTab === 'providers' ? styles.active : ''}`}
+          onClick={() => setMainTab('providers')}
+        >
+          AI Providers
+        </button>
+      </div>
+
+      <div className={styles.container}>
+        {/* Authentication Tab */}
+        {mainTab === 'authentication' && (
+          <>
+            {/* Auth Status Card */}
+            <motion.div
+              className={styles.card}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+            >
           <div className={styles.cardHeader}>
             <span className={styles.cardTitle}>Authentication Status</span>
           </div>
@@ -93,21 +274,21 @@ export function Settings() {
         >
           <div className={styles.tabs}>
             <button
-              className={`${styles.tab} ${activeTab === 'token' ? styles.active : ''}`}
-              onClick={() => setActiveTab('token')}
+              className={`${styles.tab} ${authTab === 'token' ? styles.active : ''}`}
+              onClick={() => setAuthTab('token')}
             >
               API Token
             </button>
             <button
-              className={`${styles.tab} ${activeTab === 'bootstrap' ? styles.active : ''}`}
-              onClick={() => setActiveTab('bootstrap')}
+              className={`${styles.tab} ${authTab === 'bootstrap' ? styles.active : ''}`}
+              onClick={() => setAuthTab('bootstrap')}
             >
               Bootstrap Admin
             </button>
           </div>
 
           <div className={styles.cardContent}>
-            {activeTab === 'token' && (
+            {authTab === 'token' && (
               <div className={styles.tabContent}>
                 <p className={styles.description}>
                   Enter an existing API token to authenticate. API tokens can be created
@@ -135,7 +316,7 @@ export function Settings() {
               </div>
             )}
 
-            {activeTab === 'bootstrap' && (
+            {authTab === 'bootstrap' && (
               <form className={styles.tabContent} onSubmit={handleBootstrap}>
                 <p className={styles.description}>
                   If this is a new Fold installation, use the bootstrap token (from your
@@ -251,7 +432,312 @@ export function Settings() {
             )}
           </div>
         </motion.div>
+          </>
+        )}
+
+        {/* Providers Tab */}
+        {mainTab === 'providers' && (
+          <>
+            {/* LLM & Embedding Providers */}
+            <motion.div
+              className={styles.card}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+            >
+          <div className={styles.cardHeader}>
+            <span className={styles.cardTitle}>LLM & Embedding Providers</span>
+            <button className={styles.primaryBtn} onClick={openCreateModal}>
+              Add Provider
+            </button>
+          </div>
+
+          <div className={styles.tabs}>
+            <button
+              className={`${styles.tab} ${providerTab === 'llm' ? styles.active : ''}`}
+              onClick={() => setProviderTab('llm')}
+            >
+              LLM Providers
+            </button>
+            <button
+              className={`${styles.tab} ${providerTab === 'embedding' ? styles.active : ''}`}
+              onClick={() => setProviderTab('embedding')}
+            >
+              Embedding Providers
+            </button>
+          </div>
+
+          <div className={styles.cardContent}>
+            {providerSuccess && <div className={styles.resultBox}><p>{providerSuccess}</p></div>}
+            {providerError && <div className={styles.error}>{providerError}</div>}
+            {(llmError || embeddingError) && (
+              <div className={styles.error}>Failed to load providers. The endpoint may not be implemented yet.</div>
+            )}
+
+            {providerTab === 'llm' ? (
+              <>
+                {llmProviders && llmProviders.length > 0 ? (
+                  <div className={styles.providerList}>
+                    {llmProviders.map((provider) => {
+                      const displayName = provider.name.charAt(0).toUpperCase() + provider.name.slice(1);
+                      const model = provider.config?.model as string | undefined;
+
+                      return (
+                        <div key={provider.id} className={styles.providerItem}>
+                          <div className={styles.providerInfo}>
+                            <div className={styles.providerName}>{displayName}</div>
+                            <div className={styles.providerMeta}>
+                              <span className={styles.providerType}>{provider.name}</span>
+                              <span className={styles.providerAuth}>{provider.auth_type}</span>
+                              <span className={`${styles.statusBadge} ${provider.enabled ? styles.authenticated : styles.unauthenticated}`}>
+                                <span className={styles.statusDot} />
+                                {provider.enabled ? 'Enabled' : 'Disabled'}
+                              </span>
+                              {provider.has_api_key && (
+                                <span className={styles.providerAuth}>API Key Set</span>
+                              )}
+                              {provider.has_oauth_token && (
+                                <span className={styles.providerAuth}>
+                                  OAuth {provider.oauth_token_expired ? '(Expired)' : 'Connected'}
+                                </span>
+                              )}
+                              {model && <span className={styles.providerModel}>{model}</span>}
+                              <span className={styles.providerPriority}>Priority: {provider.priority}</span>
+                            </div>
+                          </div>
+                          <div className={styles.providerActions}>
+                            <button
+                              className={styles.testBtn}
+                              onClick={() => handleTestProvider(provider.id, 'llm')}
+                              disabled={testingProvider === provider.id}
+                            >
+                              {testingProvider === provider.id ? 'Testing...' : 'Test'}
+                            </button>
+                            <button
+                              className={styles.editBtn}
+                              onClick={() => openEditModal(provider)}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              className={styles.deleteBtn}
+                              onClick={() => handleDeleteProvider(provider.id, 'llm')}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className={styles.noProviders}>
+                    No LLM providers configured. Add a provider to enable AI-powered features.
+                  </p>
+                )}
+              </>
+            ) : (
+              <>
+                {embeddingProviders && embeddingProviders.length > 0 ? (
+                  <div className={styles.providerList}>
+                    {embeddingProviders.map((provider) => {
+                      const displayName = provider.name.charAt(0).toUpperCase() + provider.name.slice(1);
+                      const model = provider.config?.model as string | undefined;
+                      const dimension = provider.config?.dimension as number | undefined;
+
+                      return (
+                        <div key={provider.id} className={styles.providerItem}>
+                          <div className={styles.providerInfo}>
+                            <div className={styles.providerName}>{displayName}</div>
+                            <div className={styles.providerMeta}>
+                              <span className={styles.providerType}>{provider.name}</span>
+                              <span className={`${styles.statusBadge} ${provider.enabled ? styles.authenticated : styles.unauthenticated}`}>
+                                <span className={styles.statusDot} />
+                                {provider.enabled ? 'Enabled' : 'Disabled'}
+                              </span>
+                              {provider.has_api_key && (
+                                <span className={styles.providerAuth}>API Key Set</span>
+                              )}
+                              {model && <span className={styles.providerModel}>{model}</span>}
+                              {dimension && <span className={styles.providerDimension}>Dim: {dimension}</span>}
+                              <span className={styles.providerPriority}>Priority: {provider.priority}</span>
+                            </div>
+                          </div>
+                          <div className={styles.providerActions}>
+                            <button
+                              className={styles.testBtn}
+                              onClick={() => handleTestProvider(provider.id, 'embedding')}
+                              disabled={testingProvider === provider.id}
+                            >
+                              {testingProvider === provider.id ? 'Testing...' : 'Test'}
+                            </button>
+                            <button
+                              className={styles.editBtn}
+                              onClick={() => openEditModal(provider)}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              className={styles.deleteBtn}
+                              onClick={() => handleDeleteProvider(provider.id, 'embedding')}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className={styles.noProviders}>
+                    No embedding providers configured. Add a provider to enable semantic search.
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        </motion.div>
+          </>
+        )}
       </div>
+
+      {/* Provider Create/Edit Modal */}
+      <Modal
+        isOpen={isCreateProviderOpen}
+        onClose={() => {
+          setIsCreateProviderOpen(false);
+          setEditingProvider(null);
+          setProviderError(null);
+        }}
+        title={editingProvider ? 'Edit Provider' : 'Add Provider'}
+        footer={
+          <div className={styles.actions}>
+            <button
+              className={styles.clearBtn}
+              onClick={() => {
+                setIsCreateProviderOpen(false);
+                setEditingProvider(null);
+                setProviderError(null);
+              }}
+            >
+              Cancel
+            </button>
+            <button type="submit" form="provider-form" className={styles.primaryBtn}>
+              {editingProvider ? 'Update Provider' : 'Create Provider'}
+            </button>
+          </div>
+        }
+      >
+        <form id="provider-form" className={styles.tabContent} onSubmit={handleCreateProvider}>
+          {providerError && <div className={styles.error}>{providerError}</div>}
+
+          <div className={styles.inputGroup}>
+            <label className={styles.label}>Provider *</label>
+            <select
+              name="name"
+              className={styles.input}
+              defaultValue={editingProvider?.name}
+              required
+            >
+              {providerTab === 'llm' ? (
+                <>
+                  <option value="gemini">Gemini</option>
+                  <option value="openai">OpenAI</option>
+                  <option value="anthropic">Anthropic (Claude)</option>
+                  <option value="openrouter">OpenRouter</option>
+                </>
+              ) : (
+                <>
+                  <option value="gemini">Gemini</option>
+                  <option value="openai">OpenAI</option>
+                </>
+              )}
+            </select>
+          </div>
+
+          {providerTab === 'llm' && (
+            <div className={styles.inputGroup}>
+              <label className={styles.label}>Authentication *</label>
+              <select
+                name="auth_type"
+                className={styles.input}
+                defaultValue={(editingProvider as LLMProvider)?.auth_type || 'api_key'}
+                required
+              >
+                <option value="api_key">API Key</option>
+                <option value="oauth">OAuth</option>
+              </select>
+            </div>
+          )}
+
+          <div className={styles.inputGroup}>
+            <label className={styles.label}>API Key {providerTab === 'llm' ? '' : '*'}</label>
+            <input
+              type="password"
+              name="api_key"
+              className={styles.input}
+              placeholder="sk-..."
+              required={providerTab === 'embedding'}
+            />
+            {providerTab === 'llm' && (
+              <p className={styles.description}>
+                Leave blank for OAuth. For Anthropic OAuth,{' '}
+                <button type="button" onClick={handleOAuthInit} className={styles.linkBtn}>
+                  click here to authorize
+                </button>
+              </p>
+            )}
+          </div>
+
+          <div className={styles.inputGroup}>
+            <label className={styles.label}>Model (optional)</label>
+            <input
+              type="text"
+              name="model"
+              className={styles.input}
+              placeholder="gpt-4, claude-3-opus, etc."
+              defaultValue={editingProvider?.config?.model as string | undefined}
+            />
+          </div>
+
+          {providerTab === 'embedding' && (
+            <div className={styles.inputGroup}>
+              <label className={styles.label}>Dimension (optional)</label>
+              <input
+                type="number"
+                name="dimension"
+                className={styles.input}
+                placeholder="1536"
+                defaultValue={editingProvider?.config?.dimension as number | undefined}
+              />
+            </div>
+          )}
+
+          <div className={styles.inputGroup}>
+            <label className={styles.label}>Priority</label>
+            <input
+              type="number"
+              name="priority"
+              className={styles.input}
+              placeholder="1"
+              defaultValue={editingProvider?.priority || 1}
+              min="1"
+            />
+            <p className={styles.description}>Lower numbers = higher priority</p>
+          </div>
+
+          <div className={styles.inputGroup}>
+            <label className={styles.checkboxLabel}>
+              <input
+                type="checkbox"
+                name="enabled"
+                defaultChecked={editingProvider?.enabled ?? true}
+              />
+              <span>Enabled</span>
+            </label>
+          </div>
+        </form>
+      </Modal>
     </>
   );
 }

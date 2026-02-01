@@ -16,6 +16,33 @@
   color: var(--text-secondary);
 }
 
+/* Main Tabs */
+.mainTabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 2px solid var(--border);
+}
+
+.mainTab {
+  padding: 1rem 1.5rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-secondary);
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: all 0.2s var(--ease-out-expo);
+}
+
+.mainTab:hover {
+  color: var(--text-primary);
+}
+
+.mainTab.active {
+  color: var(--text-primary);
+  border-bottom-color: var(--holo-cyan);
+}
+
 .container {
   display: flex;
   flex-direction: column;
@@ -268,4 +295,129 @@
   color: var(--text-tertiary);
   text-align: center;
   padding: 1rem;
+}
+
+/* Provider Items */
+.providerItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  gap: 1rem;
+}
+
+.providerInfo {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.providerName {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.providerMeta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.providerType,
+.providerAuth,
+.providerModel,
+.providerDimension,
+.providerPriority {
+  font-size: 0.7rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text-secondary);
+}
+
+.providerActions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.testBtn,
+.editBtn,
+.deleteBtn {
+  padding: 0.5rem 0.875rem;
+  font-size: 0.75rem;
+  border-radius: var(--radius-md);
+  transition: all 0.2s var(--ease-out-expo);
+}
+
+.testBtn {
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+.testBtn:hover:not(:disabled) {
+  border-color: var(--border-active);
+  color: var(--text-primary);
+}
+
+.testBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.editBtn {
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+.editBtn:hover {
+  border-color: var(--holo-cyan);
+  color: var(--holo-cyan);
+}
+
+.deleteBtn {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: var(--status-error);
+}
+
+.deleteBtn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: rgba(239, 68, 68, 0.5);
+}
+
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.checkboxLabel input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.linkBtn {
+  color: var(--holo-cyan);
+  text-decoration: underline;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: inherit;
+  cursor: pointer;
+}
+
+.linkBtn:hover {
+  opacity: 0.8;
 }

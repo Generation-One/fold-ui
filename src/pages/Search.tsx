@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { api } from '../lib/api';
+import { useProject } from '../stores/project';
 import type { SearchResult, Project } from '../lib/api';
-import { EmptyState, TypeBadge, ProjectSelector } from '../components/ui';
+import { EmptyState, TypeBadge } from '../components/ui';
 import type { MemoryType } from '../components/ui';
 import useSWR from 'swr';
 import styles from './Search.module.css';
@@ -10,12 +11,18 @@ import styles from './Search.module.css';
 const MEMORY_TYPES: MemoryType[] = ['codebase', 'session', 'spec', 'decision', 'task', 'general'];
 
 export function Search() {
-  const [selectedProject, setSelectedProject] = useState<string | null>(null);
+  const { selectedProjectId } = useProject();
+  const selectedProject = selectedProjectId;
   const [selectedType, setSelectedType] = useState<MemoryType | null>(null);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[] | null>(null);
   const [searching, setSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Advanced search options
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [useRecencyBias, setUseRecencyBias] = useState(false);
+  const [strengthWeight, setStrengthWeight] = useState(0.3);
+  const [decayHalfLife, setDecayHalfLife] = useState(30);
 
   // Projects are fetched by ProjectSelector, but we warm the cache here
   useSWR<Project[]>('projects', api.listProjects);
@@ -28,10 +35,23 @@ export function Search() {
     setError(null);
 
     try {
-      const data = await api.searchMemories(selectedProject, query.trim(), {
+      const options: {
+        type?: string;
+        limit: number;
+        strength_weight?: number;
+        decay_half_life_days?: number;
+      } = {
         type: selectedType || undefined,
         limit: 50,
-      });
+      };
+
+      // Add decay overrides if advanced mode is active
+      if (useRecencyBias) {
+        options.strength_weight = strengthWeight;
+        options.decay_half_life_days = decayHalfLife;
+      }
+
+      const data = await api.searchMemories(selectedProject, query.trim(), options);
       setResults(data.results);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Search failed');
@@ -108,18 +128,6 @@ export function Search() {
 
         <div className={styles.filtersRow}>
           <div className={styles.filterGroup}>
-            <span className={styles.filterLabel}>Project</span>
-            <ProjectSelector
-              value={selectedProject}
-              onChange={(id) => {
-                setSelectedProject(id);
-                setResults(null);
-              }}
-              placeholder="Select a project..."
-            />
-          </div>
-
-          <div className={styles.filterGroup}>
             <span className={styles.filterLabel}>Type Filter</span>
             <div className={styles.typeFilters}>
               <button
@@ -141,7 +149,72 @@ export function Search() {
               ))}
             </div>
           </div>
+          <button
+            type="button"
+            className={`${styles.advancedToggle} ${showAdvanced ? styles.active : ''}`}
+            onClick={() => setShowAdvanced(!showAdvanced)}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 3v18M3 12h18" />
+            </svg>
+            Advanced
+          </button>
         </div>
+
+        {showAdvanced && (
+          <div className={styles.advancedOptions}>
+            <label className={styles.checkboxLabel}>
+              <input
+                type="checkbox"
+                checked={useRecencyBias}
+                onChange={(e) => setUseRecencyBias(e.target.checked)}
+              />
+              <span>Override project defaults</span>
+            </label>
+
+            {useRecencyBias && (
+              <div className={styles.sliderRow}>
+                <div className={styles.sliderGroup}>
+                  <div className={styles.sliderHeader}>
+                    <label className={styles.sliderLabel}>Recency Weight</label>
+                    <span className={styles.sliderValue}>{(strengthWeight * 100).toFixed(0)}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={strengthWeight * 100}
+                    onChange={(e) => setStrengthWeight(Number(e.target.value) / 100)}
+                    className={styles.slider}
+                  />
+                  <div className={styles.sliderHint}>
+                    <span>Semantic</span>
+                    <span>Recency</span>
+                  </div>
+                </div>
+
+                <div className={styles.sliderGroup}>
+                  <div className={styles.sliderHeader}>
+                    <label className={styles.sliderLabel}>Decay Half-Life</label>
+                    <span className={styles.sliderValue}>{decayHalfLife} days</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1"
+                    max="365"
+                    value={decayHalfLife}
+                    onChange={(e) => setDecayHalfLife(Number(e.target.value))}
+                    className={styles.slider}
+                  />
+                  <div className={styles.sliderHint}>
+                    <span>Aggressive</span>
+                    <span>Slow</span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </form>
 
       {error && <div className={styles.error}>{error}</div>}
@@ -202,13 +275,29 @@ export function Search() {
                     <TypeBadge type={result.memory.type as MemoryType} />
                   </div>
                   <div className={styles.resultScore}>
-                    <div className={styles.scoreBar}>
-                      <div
-                        className={styles.scoreFill}
-                        style={{ width: `${result.similarity * 100}%` }}
-                      />
-                    </div>
-                    <span>{(result.similarity * 100).toFixed(0)}%</span>
+                    {result.combined_score !== undefined ? (
+                      <>
+                        <div className={styles.scoreBreakdown} title={`Semantic: ${((result.score || result.similarity) * 100).toFixed(0)}% | Recency: ${((result.strength || 0) * 100).toFixed(0)}%`}>
+                          <div className={styles.scoreBar}>
+                            <div
+                              className={styles.scoreFill}
+                              style={{ width: `${result.combined_score * 100}%` }}
+                            />
+                          </div>
+                          <span>{(result.combined_score * 100).toFixed(0)}%</span>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className={styles.scoreBar}>
+                          <div
+                            className={styles.scoreFill}
+                            style={{ width: `${result.similarity * 100}%` }}
+                          />
+                        </div>
+                        <span>{(result.similarity * 100).toFixed(0)}%</span>
+                      </>
+                    )}
                   </div>
                 </div>
 

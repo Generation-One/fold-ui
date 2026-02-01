@@ -2,8 +2,9 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import useSWR from 'swr';
 import { api } from '../lib/api';
+import { useProject } from '../stores/project';
 import type { GraphNode, GraphData, Project } from '../lib/api';
-import { EmptyState, ProjectSelector, TypeBadge } from '../components/ui';
+import { EmptyState, TypeBadge } from '../components/ui';
 import type { MemoryType } from '../components/ui';
 import styles from './Graph.module.css';
 
@@ -24,7 +25,8 @@ const TYPE_COLORS: Record<string, string> = {
 };
 
 export function Graph() {
-  const [selectedProject, setSelectedProject] = useState<string | null>(null);
+  const { selectedProjectId } = useProject();
+  const selectedProject = selectedProjectId;
   const [selectedNode, setSelectedNode] = useState<SimNode | null>(null);
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -42,6 +44,13 @@ export function Graph() {
     () => api.getGraph(selectedProject!),
     { refreshInterval: 30000 }
   );
+
+  // Reset view when project changes
+  useEffect(() => {
+    setSelectedNode(null);
+    setPan({ x: 0, y: 0 });
+    setZoom(1);
+  }, [selectedProject]);
 
   // Initialize nodes with positions
   useEffect(() => {
@@ -193,19 +202,6 @@ export function Graph() {
         </div>
       </div>
 
-      {/* Controls */}
-      <div className={styles.controls}>
-        <ProjectSelector
-          value={selectedProject}
-          onChange={(id) => {
-            setSelectedProject(id);
-            setSelectedNode(null);
-            setPan({ x: 0, y: 0 });
-            setZoom(1);
-          }}
-          placeholder="Select a project..."
-        />
-      </div>
 
       {/* Graph Container */}
       <div className={styles.graphContainer}>
