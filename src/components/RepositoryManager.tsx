@@ -6,17 +6,23 @@ import type { Repository, RepositoryCreateByUrl } from '../lib/api';
 import { Modal, EmptyState } from './ui';
 import styles from './RepositoryManager.module.css';
 
+type Provider = 'github' | 'gitlab';
+
 interface RepositoryManagerProps {
   projectId: string;
 }
 
 export function RepositoryManager({ projectId }: RepositoryManagerProps) {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingRepo, setEditingRepo] = useState<Repository | null>(null);
   const [isReindexing, setIsReindexing] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [selectedProvider, setSelectedProvider] = useState<Provider>('github');
 
   const { data: repositories, isLoading, error: fetchError } = useSWR<Repository[]>(
     projectId ? `repositories-${projectId}` : null,
@@ -115,6 +121,42 @@ export function RepositoryManager({ projectId }: RepositoryManagerProps) {
     }
   };
 
+  const handleEdit = (repo: Repository) => {
+    setEditingRepo(repo);
+    setError(null);
+    setIsEditOpen(true);
+  };
+
+  const handleUpdate = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!editingRepo) return;
+
+    setIsUpdating(true);
+    setError(null);
+
+    const formData = new FormData(e.currentTarget);
+    const accessToken = formData.get('access_token') as string;
+    const pollingEnabled = formData.get('polling_enabled') === 'on';
+    const pollingIntervalStr = formData.get('polling_interval_secs') as string;
+
+    try {
+      await api.updateRepository(projectId, editingRepo.id, {
+        ...(accessToken ? { access_token: accessToken } : {}),
+        polling_enabled: pollingEnabled,
+        ...(pollingEnabled && pollingIntervalStr ? { polling_interval_secs: parseInt(pollingIntervalStr, 10) } : {}),
+      });
+      mutate(`repositories-${projectId}`);
+      setIsEditOpen(false);
+      setEditingRepo(null);
+      setSuccess('Repository updated successfully');
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update repository');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   const getStatusColor = (status: Repository['status']) => {
     switch (status) {
       case 'connected':
@@ -150,7 +192,11 @@ export function RepositoryManager({ projectId }: RepositoryManagerProps) {
           <h2 className={styles.title}>Connected Repositories</h2>
           <p className={styles.subtitle}>Manage your connected git repositories</p>
         </div>
-        <button className={styles.connectBtn} onClick={() => setIsCreateOpen(true)}>
+        <button className={styles.connectBtn} onClick={() => {
+          setSelectedProvider('github');
+          setError(null);
+          setIsCreateOpen(true);
+        }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M12 5v14M5 12h14" />
           </svg>
@@ -177,7 +223,11 @@ export function RepositoryManager({ projectId }: RepositoryManagerProps) {
           description="Connect your first repository to enable automatic indexing"
           action={{
             label: 'Connect Repository',
-            onClick: () => setIsCreateOpen(true),
+            onClick: () => {
+              setSelectedProvider('github');
+              setError(null);
+              setIsCreateOpen(true);
+            },
           }}
         />
       ) : (
@@ -263,6 +313,16 @@ export function RepositoryManager({ projectId }: RepositoryManagerProps) {
                     )}
                   </button>
                   <button
+                    className={`${styles.actionBtn} ${styles.secondary}`}
+                    onClick={() => handleEdit(repo)}
+                    title="Edit repository settings"
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
+                      <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
+                    </svg>
+                  </button>
+                  <button
                     className={`${styles.actionBtn} ${styles.danger}`}
                     onClick={() => handleDelete(repo)}
                     title="Disconnect repository"
@@ -275,18 +335,59 @@ export function RepositoryManager({ projectId }: RepositoryManagerProps) {
               </div>
 
               <div className={styles.repoMeta}>
+                {/* Clone status */}
+                <div className={styles.metaItem}>
+                  {repo.local_path ? (
+                    <span className={styles.cloneStatusCloned} title={repo.local_path}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
+                        <polyline points="22 4 12 14.01 9 11.01" />
+                      </svg>
+                      Cloned
+                    </span>
+                  ) : (
+                    <span className={styles.cloneStatusNotCloned}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="12" cy="12" r="10" />
+                        <line x1="12" y1="8" x2="12" y2="12" />
+                        <line x1="12" y1="16" x2="12.01" y2="16" />
+                      </svg>
+                      Not cloned
+                    </span>
+                  )}
+                </div>
+
+                {/* Status badge */}
                 <div className={styles.metaItem}>
                   <span className={`${styles.statusBadge} ${getStatusColor(repo.status)}`}>
                     {repo.status}
                   </span>
                 </div>
+
+                {/* HEAD SHA */}
+                {repo.head_sha && (
+                  <div className={styles.metaItem}>
+                    <span className={styles.headSha} title={repo.head_sha}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="12" cy="12" r="4" />
+                        <line x1="1.05" y1="12" x2="7" y2="12" />
+                        <line x1="17.01" y1="12" x2="22.96" y2="12" />
+                      </svg>
+                      {repo.head_sha.substring(0, 7)}
+                    </span>
+                  </div>
+                )}
+
+                {/* Auto-index status */}
                 <div className={styles.metaItem}>
                   {repo.auto_index ? (
-                    <span className={styles.autoIndexBadge}>Auto-index enabled</span>
+                    <span className={styles.autoIndexBadge}>Auto-index</span>
                   ) : (
-                    <span className={styles.autoIndexBadgeDisabled}>Auto-index disabled</span>
+                    <span className={styles.autoIndexBadgeDisabled}>Manual</span>
                   )}
                 </div>
+
+                {/* Polling toggle */}
                 <button
                   className={styles.pollingToggle}
                   onClick={() => handleTogglePolling(repo)}
@@ -296,6 +397,8 @@ export function RepositoryManager({ projectId }: RepositoryManagerProps) {
                     {repo.polling_enabled ? 'Polling on' : 'Polling off'}
                   </span>
                 </button>
+
+                {/* Last indexed */}
                 {repo.last_indexed_at && (
                   <div className={styles.metaItem}>
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -342,6 +445,22 @@ export function RepositoryManager({ projectId }: RepositoryManagerProps) {
           {error && <div className={styles.formError}>{error}</div>}
 
           <div className={styles.formGroup}>
+            <label className={styles.label} htmlFor="provider">
+              Provider
+            </label>
+            <select
+              id="provider"
+              name="provider"
+              className={styles.input}
+              value={selectedProvider}
+              onChange={(e) => setSelectedProvider(e.target.value as Provider)}
+            >
+              <option value="github">GitHub</option>
+              <option value="gitlab">GitLab</option>
+            </select>
+          </div>
+
+          <div className={styles.formGroup}>
             <label className={styles.label} htmlFor="url">
               Repository URL *
             </label>
@@ -350,11 +469,15 @@ export function RepositoryManager({ projectId }: RepositoryManagerProps) {
               id="url"
               name="url"
               className={styles.input}
-              placeholder="https://github.com/owner/repo"
+              placeholder={
+                selectedProvider === 'github'
+                  ? 'https://github.com/owner/repo'
+                  : 'https://gitlab.com/owner/repo'
+              }
               required
             />
             <p className={styles.helperText}>
-              Paste the full URL to your GitHub or GitLab repository
+              Paste the full URL to your repository
             </p>
           </div>
 
@@ -367,18 +490,25 @@ export function RepositoryManager({ projectId }: RepositoryManagerProps) {
               id="access_token"
               name="access_token"
               className={styles.input}
-              placeholder="ghp_... or glpat-..."
+              placeholder={selectedProvider === 'github' ? 'ghp_...' : 'glpat-...'}
               required
             />
             <p className={styles.helperText}>
-              {`Create a token with repo scope at `}
-              <a href="https://github.com/settings/tokens" target="_blank" rel="noopener noreferrer">
-                GitHub Settings
-              </a>
-              {` or `}
-              <a href="https://gitlab.com/-/user_settings/personal_access_tokens" target="_blank" rel="noopener noreferrer">
-                GitLab Settings
-              </a>
+              {selectedProvider === 'github' ? (
+                <>
+                  Create a token with repo scope at{' '}
+                  <a href="https://github.com/settings/tokens" target="_blank" rel="noopener noreferrer">
+                    GitHub Settings
+                  </a>
+                </>
+              ) : (
+                <>
+                  Create a token with read_repository scope at{' '}
+                  <a href="https://gitlab.com/-/user_settings/personal_access_tokens" target="_blank" rel="noopener noreferrer">
+                    GitLab Settings
+                  </a>
+                </>
+              )}
             </p>
           </div>
 
@@ -396,6 +526,105 @@ export function RepositoryManager({ projectId }: RepositoryManagerProps) {
             </p>
           </div>
         </form>
+      </Modal>
+
+      {/* Edit Modal */}
+      <Modal
+        isOpen={isEditOpen}
+        onClose={() => {
+          setIsEditOpen(false);
+          setEditingRepo(null);
+        }}
+        title={editingRepo ? `Edit ${editingRepo.owner}/${editingRepo.name}` : 'Edit Repository'}
+        footer={
+          <div className={styles.formActions}>
+            <button
+              className={styles.cancelBtn}
+              onClick={() => {
+                setIsEditOpen(false);
+                setEditingRepo(null);
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              form="edit-repo-form"
+              className={styles.submitBtn}
+              disabled={isUpdating}
+            >
+              {isUpdating ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        }
+      >
+        {editingRepo && (
+          <form id="edit-repo-form" className={styles.form} onSubmit={handleUpdate}>
+            {error && <div className={styles.formError}>{error}</div>}
+
+            <div className={styles.formGroup}>
+              <label className={styles.label}>Repository</label>
+              <div className={styles.readOnlyValue}>
+                {editingRepo.owner}/{editingRepo.name}
+              </div>
+            </div>
+
+            {editingRepo.local_path && (
+              <div className={styles.formGroup}>
+                <label className={styles.label}>Local Path</label>
+                <div className={styles.readOnlyValue}>{editingRepo.local_path}</div>
+              </div>
+            )}
+
+            <div className={styles.formGroup}>
+              <label className={styles.label} htmlFor="edit_access_token">
+                Access Token
+              </label>
+              <input
+                type="password"
+                id="edit_access_token"
+                name="access_token"
+                className={styles.input}
+                placeholder="Leave blank to keep current token"
+              />
+              <p className={styles.helperText}>
+                Only enter a new token if you need to update it
+              </p>
+            </div>
+
+            <div className={styles.formGroup}>
+              <label className={styles.checkboxLabel}>
+                <input
+                  type="checkbox"
+                  name="polling_enabled"
+                  defaultChecked={editingRepo.polling_enabled}
+                />
+                Enable polling for changes
+              </label>
+              <p className={styles.helperText}>
+                Periodically check for new commits instead of relying on webhooks
+              </p>
+            </div>
+
+            <div className={styles.formGroup}>
+              <label className={styles.label} htmlFor="edit_polling_interval">
+                Polling Interval (seconds)
+              </label>
+              <input
+                type="number"
+                id="edit_polling_interval"
+                name="polling_interval_secs"
+                className={styles.input}
+                defaultValue={editingRepo.polling_interval_secs ?? 300}
+                min={60}
+                max={86400}
+              />
+              <p className={styles.helperText}>
+                How often to check for changes (60-86400 seconds)
+              </p>
+            </div>
+          </form>
+        )}
       </Modal>
     </div>
   );

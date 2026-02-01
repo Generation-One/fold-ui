@@ -410,3 +410,125 @@
   color: var(--status-error);
   margin-bottom: 1rem;
 }
+
+/* Memory Detail Modal */
+.modalContent {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.modalRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.modalDate {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+}
+
+.modalTitle {
+  font-family: 'Syne', sans-serif;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.modalBody {
+  padding: 1rem;
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+  line-height: 1.7;
+  color: var(--text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.modalScores {
+  display: flex;
+  gap: 1.5rem;
+  padding: 0.75rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.modalScoreItem {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.modalScoreLabel {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-tertiary);
+}
+
+.modalScoreValue {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--holo-cyan);
+}
+
+.modalMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.modalMetaItem {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.modalMetaLabel {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-tertiary);
+  min-width: 60px;
+}
+
+.modalMetaValue {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.modalMetaValue code,
+code.modalMetaValue {
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+  font-size: 0.75rem;
+  padding: 0.125rem 0.375rem;
+  background: var(--elevated);
+  border-radius: var(--radius-sm);
+}
+
+.modalTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.modalTag {
+  padding: 0.25rem 0.625rem;
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+}

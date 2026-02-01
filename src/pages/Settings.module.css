@@ -421,3 +421,62 @@
 .linkBtn:hover {
   opacity: 0.8;
 }
+
+/* Claude Code Form */
+.claudeCodeForm {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.detectedBox {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: var(--radius-md);
+}
+
+.detectedInfo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--status-healthy);
+}
+
+.detectedInfo svg {
+  flex-shrink: 0;
+}
+
+.divider {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  color: var(--text-tertiary);
+  font-size: 0.75rem;
+}
+
+.divider::before,
+.divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+.hint {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  margin: 0;
+}
+
+.hint code {
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+  font-size: 0.7rem;
+  padding: 0.125rem 0.375rem;
+  background: var(--elevated);
+  border-radius: var(--radius-sm);
+}

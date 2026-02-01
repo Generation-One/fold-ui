@@ -70,13 +70,19 @@ export interface Repository {
   provider: 'git-hub' | 'git-lab';
   owner: string;
   name: string;
+  full_name: string;
   default_branch: string;
   status: 'connected' | 'syncing' | 'error' | 'disconnected';
   auto_index: boolean;
   polling_enabled: boolean;
   polling_interval_secs?: number;
+  /** Local filesystem path where the repository is cloned */
+  local_path?: string;
+  /** HEAD commit SHA of the local clone */
+  head_sha?: string;
   last_indexed_at?: string;
   last_polled_at?: string;
+  webhook_id?: string;
   error_message?: string;
   created_at: string;
   updated_at: string;
@@ -130,7 +136,7 @@ export interface AuthProvider {
 
 export interface LLMProvider {
   id: string;
-  name: 'gemini' | 'openai' | 'anthropic' | 'openrouter';
+  name: 'gemini' | 'openai' | 'anthropic' | 'openrouter' | 'claudecode';
   enabled: boolean;
   priority: number;
   auth_type: 'api_key' | 'oauth';
@@ -173,7 +179,7 @@ export interface EmbeddingProvider {
 }
 
 export interface LLMProviderCreateRequest {
-  name: 'gemini' | 'openai' | 'anthropic' | 'openrouter';
+  name: 'gemini' | 'openai' | 'anthropic' | 'openrouter' | 'claudecode';
   enabled?: boolean;
   priority?: number;
   auth_type?: 'api_key' | 'oauth';
@@ -188,6 +194,25 @@ export interface EmbeddingProviderCreateRequest {
   auth_type?: 'api_key';
   api_key?: string;
   config?: Record<string, any>;
+}
+
+// Claude Code Provider
+export interface ClaudeCodeStatus {
+  detected: boolean;
+  info?: {
+    subscription_type: 'max' | 'pro' | 'free';
+    is_expired: boolean;
+    has_token: boolean;
+    organization_id?: string;
+  };
+  provider_exists: boolean;
+  provider_id?: string;
+}
+
+export interface ClaudeCodeImportRequest {
+  access_token: string;
+  refresh_token?: string;
+  subscription_type: 'max' | 'pro' | 'free';
 }
 
 export interface BootstrapRequest {
@@ -535,6 +560,24 @@ class FoldApiClient {
     return `${API_BASE}/providers/${providerType}/${providerName}/oauth/authorize?mode=${mode}`;
   }
 
+  // Claude Code Provider
+  async getClaudeCodeStatus(): Promise<ClaudeCodeStatus> {
+    return this.request<ClaudeCodeStatus>('/providers/llm/claudecode/status');
+  }
+
+  async autoImportClaudeCode(): Promise<LLMProvider> {
+    return this.request<LLMProvider>('/providers/llm/claudecode/auto-import', {
+      method: 'POST',
+    });
+  }
+
+  async importClaudeCode(data: ClaudeCodeImportRequest): Promise<LLMProvider> {
+    return this.request<LLMProvider>('/providers/llm/claudecode/import', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
   // Embedding Providers
   async listEmbeddingProviders(): Promise<EmbeddingProvider[]> {
     return this.request<EmbeddingProvider[]>('/providers/embedding');
@@ -759,6 +802,11 @@ export const api = {
   testLLMProvider: (id: string) => apiClient.testLLMProvider(id),
   getProviderOAuthUrl: (providerType: 'llm' | 'embedding', providerName: 'anthropic', mode?: 'console' | 'max') =>
     apiClient.getProviderOAuthUrl(providerType, providerName, mode),
+
+  // Claude Code Provider
+  getClaudeCodeStatus: () => apiClient.getClaudeCodeStatus(),
+  autoImportClaudeCode: () => apiClient.autoImportClaudeCode(),
+  importClaudeCode: (data: ClaudeCodeImportRequest) => apiClient.importClaudeCode(data),
 
   // Embedding Providers
   listEmbeddingProviders: () => apiClient.listEmbeddingProviders(),

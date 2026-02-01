@@ -9,6 +9,7 @@ import { Jobs } from './pages/Jobs';
 import { Graph } from './pages/Graph';
 import { McpTester } from './pages/McpTester';
 import { Settings } from './pages/Settings';
+import { ToastProvider } from './components/Toast';
 import { useAuth } from './stores/auth';
 import { api } from './lib/api';
 
@@ -28,20 +29,22 @@ function App() {
   }, [token, fetchUser]);
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Layout />}>
-          <Route index element={<Dashboard />} />
-          <Route path="search" element={<Search />} />
-          <Route path="projects" element={<Projects />} />
-          <Route path="memories" element={<Memories />} />
-          <Route path="graph" element={<Graph />} />
-          <Route path="jobs" element={<Jobs />} />
-          <Route path="mcp" element={<McpTester />} />
-          <Route path="settings" element={<Settings />} />
-        </Route>
-      </Routes>
-    </BrowserRouter>
+    <ToastProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Layout />}>
+            <Route index element={<Dashboard />} />
+            <Route path="search" element={<Search />} />
+            <Route path="projects" element={<Projects />} />
+            <Route path="memories" element={<Memories />} />
+            <Route path="graph" element={<Graph />} />
+            <Route path="jobs" element={<Jobs />} />
+            <Route path="mcp" element={<McpTester />} />
+            <Route path="settings" element={<Settings />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </ToastProvider>
   );
 }
 

@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { api } from '../lib/api';
 import { useProject } from '../stores/project';
 import type { SearchResult, Project } from '../lib/api';
-import { EmptyState, TypeBadge } from '../components/ui';
+import { EmptyState, TypeBadge, Modal } from '../components/ui';
 import type { MemoryType } from '../components/ui';
 import useSWR from 'swr';
 import styles from './Search.module.css';
@@ -23,6 +23,8 @@ export function Search() {
   const [useRecencyBias, setUseRecencyBias] = useState(false);
   const [strengthWeight, setStrengthWeight] = useState(0.3);
   const [decayHalfLife, setDecayHalfLife] = useState(30);
+  // Memory detail modal
+  const [selectedResult, setSelectedResult] = useState<SearchResult | null>(null);
 
   // Projects are fetched by ProjectSelector, but we warm the cache here
   useSWR<Project[]>('projects', api.listProjects);
@@ -66,6 +68,18 @@ export function Search() {
     return date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
+    });
+  };
+
+  const formatFullDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
     });
   };
 
@@ -269,6 +283,8 @@ export function Search() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.2, delay: index * 0.05 }}
+                onClick={() => setSelectedResult(result)}
+                style={{ cursor: 'pointer' }}
               >
                 <div className={styles.resultHeader}>
                   <div className={styles.resultHeaderLeft}>
@@ -325,6 +341,90 @@ export function Search() {
           </div>
         </>
       )}
+
+      {/* Memory Detail Modal */}
+      <Modal
+        isOpen={selectedResult !== null}
+        title="Memory Details"
+        onClose={() => setSelectedResult(null)}
+        wide
+      >
+        {selectedResult && (
+          <div className={styles.modalContent}>
+            <div className={styles.modalRow}>
+              <TypeBadge type={selectedResult.memory.type as MemoryType} />
+              <span className={styles.modalDate}>
+                {formatFullDate(selectedResult.memory.created_at)}
+              </span>
+            </div>
+
+            {selectedResult.memory.title && (
+              <h3 className={styles.modalTitle}>{selectedResult.memory.title}</h3>
+            )}
+
+            <div className={styles.modalBody}>
+              {selectedResult.memory.content}
+            </div>
+
+            {/* Score breakdown */}
+            <div className={styles.modalScores}>
+              <div className={styles.modalScoreItem}>
+                <span className={styles.modalScoreLabel}>Match Score</span>
+                <span className={styles.modalScoreValue}>
+                  {((selectedResult.combined_score ?? selectedResult.similarity) * 100).toFixed(1)}%
+                </span>
+              </div>
+              {selectedResult.combined_score !== undefined && (
+                <>
+                  <div className={styles.modalScoreItem}>
+                    <span className={styles.modalScoreLabel}>Semantic</span>
+                    <span className={styles.modalScoreValue}>
+                      {((selectedResult.score || selectedResult.similarity) * 100).toFixed(1)}%
+                    </span>
+                  </div>
+                  <div className={styles.modalScoreItem}>
+                    <span className={styles.modalScoreLabel}>Recency</span>
+                    <span className={styles.modalScoreValue}>
+                      {((selectedResult.strength || 0) * 100).toFixed(1)}%
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Metadata */}
+            <div className={styles.modalMeta}>
+              {selectedResult.memory.file_path && (
+                <div className={styles.modalMetaItem}>
+                  <span className={styles.modalMetaLabel}>File</span>
+                  <code className={styles.modalMetaValue}>{selectedResult.memory.file_path}</code>
+                </div>
+              )}
+              {selectedResult.memory.author && (
+                <div className={styles.modalMetaItem}>
+                  <span className={styles.modalMetaLabel}>Author</span>
+                  <span className={styles.modalMetaValue}>{selectedResult.memory.author}</span>
+                </div>
+              )}
+              {selectedResult.memory.updated_at && selectedResult.memory.updated_at !== selectedResult.memory.created_at && (
+                <div className={styles.modalMetaItem}>
+                  <span className={styles.modalMetaLabel}>Updated</span>
+                  <span className={styles.modalMetaValue}>{formatFullDate(selectedResult.memory.updated_at)}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Tags */}
+            {selectedResult.memory.tags && selectedResult.memory.tags.length > 0 && (
+              <div className={styles.modalTags}>
+                {selectedResult.memory.tags.map((tag, i) => (
+                  <span key={i} className={styles.modalTag}>{tag}</span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
     </motion.div>
   );
 }

@@ -1,4 +1,5 @@
-import { useState, useEffect, KeyboardEvent } from 'react';
+import { useState, useEffect } from 'react';
+import type { KeyboardEvent } from 'react';
 import useSWR, { mutate } from 'swr';
 import { api } from '../lib/api';
 import styles from './ProjectSettings.module.css';
