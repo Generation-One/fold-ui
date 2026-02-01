@@ -135,6 +135,102 @@
   position: relative;
 }
 
+.projectSelectorTrigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.625rem 1rem;
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  min-width: 200px;
+  cursor: pointer;
+  transition: all 0.2s var(--ease-out-expo);
+}
+
+.projectSelectorTrigger:hover {
+  border-color: var(--border-active);
+}
+
+.projectSelectorValue {
+  flex: 1;
+  text-align: left;
+  color: var(--text-primary);
+}
+
+.projectSelectorPlaceholder {
+  flex: 1;
+  text-align: left;
+  color: var(--text-tertiary);
+}
+
+.projectSelectorChevron {
+  width: 16px;
+  height: 16px;
+  color: var(--text-tertiary);
+  transition: transform 0.2s var(--ease-out-expo);
+  flex-shrink: 0;
+}
+
+.projectSelectorChevron.open {
+  transform: rotate(180deg);
+}
+
+.projectSelectorDropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  z-index: 100;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.projectSelectorEmpty {
+  padding: 1rem;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--text-tertiary);
+}
+
+.projectSelectorOption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.625rem 1rem;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  transition: all 0.15s var(--ease-out-expo);
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+}
+
+.projectSelectorOption:hover {
+  background: var(--elevated);
+  color: var(--text-primary);
+}
+
+.projectSelectorOption.selected {
+  background: rgba(0, 212, 255, 0.1);
+  color: var(--holo-cyan);
+}
+
+.projectSelectorSlug {
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
+  font-size: 0.7rem;
+  color: var(--text-tertiary);
+}
+
+/* Legacy Selector Styles (kept for compatibility) */
 .selectorTrigger {
   display: flex;
   align-items: center;
