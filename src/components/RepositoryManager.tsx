@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import useSWR, { mutate } from 'swr';
 import { api } from '../lib/api';
-import type { Repository, RepositoryCreateRequest } from '../lib/api';
+import type { Repository, RepositoryCreateByUrl } from '../lib/api';
 import { Modal, EmptyState } from './ui';
 import styles from './RepositoryManager.module.css';
 
@@ -36,11 +36,8 @@ export function RepositoryManager({ projectId }: RepositoryManagerProps) {
     setSuccess(null);
 
     const formData = new FormData(e.currentTarget);
-    const data: RepositoryCreateRequest = {
-      provider: formData.get('provider') as 'git-hub' | 'git-lab',
-      owner: formData.get('owner') as string,
-      name: formData.get('name') as string,
-      default_branch: (formData.get('default_branch') as string) || 'main',
+    const data: RepositoryCreateByUrl = {
+      url: formData.get('url') as string,
       access_token: formData.get('access_token') as string,
       auto_index: formData.get('auto_index') === 'on',
     };
@@ -279,56 +276,20 @@ export function RepositoryManager({ projectId }: RepositoryManagerProps) {
           {error && <div className={styles.formError}>{error}</div>}
 
           <div className={styles.formGroup}>
-            <label className={styles.label} htmlFor="provider">
-              Provider *
-            </label>
-            <select id="provider" name="provider" className={styles.select} required>
-              <option value="git-hub">GitHub</option>
-              <option value="git-lab">GitLab</option>
-            </select>
-          </div>
-
-          <div className={styles.row}>
-            <div className={styles.formGroup}>
-              <label className={styles.label} htmlFor="owner">
-                Owner *
-              </label>
-              <input
-                type="text"
-                id="owner"
-                name="owner"
-                className={styles.input}
-                placeholder="username or organization"
-                required
-              />
-            </div>
-
-            <div className={styles.formGroup}>
-              <label className={styles.label} htmlFor="name">
-                Repository Name *
-              </label>
-              <input
-                type="text"
-                id="name"
-                name="name"
-                className={styles.input}
-                placeholder="repo-name"
-                required
-              />
-            </div>
-          </div>
-
-          <div className={styles.formGroup}>
-            <label className={styles.label} htmlFor="default_branch">
-              Default Branch
+            <label className={styles.label} htmlFor="url">
+              Repository URL *
             </label>
             <input
-              type="text"
-              id="default_branch"
-              name="default_branch"
+              type="url"
+              id="url"
+              name="url"
               className={styles.input}
-              placeholder="main (default)"
+              placeholder="https://github.com/owner/repo"
+              required
             />
+            <p className={styles.helperText}>
+              Paste the full URL to your GitHub or GitLab repository
+            </p>
           </div>
 
           <div className={styles.formGroup}>

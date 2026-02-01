@@ -341,12 +341,6 @@
   gap: 0.5rem;
 }
 
-.row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
-}
-
 .label {
   font-size: 0.7rem;
   text-transform: uppercase;
@@ -354,8 +348,7 @@
   color: var(--text-secondary);
 }
 
-.input,
-.select {
+.input {
   padding: 0.75rem 1rem;
   background: var(--elevated);
   border: 1px solid var(--border);
@@ -369,8 +362,7 @@
   color: var(--text-tertiary);
 }
 
-.input:focus,
-.select:focus {
+.input:focus {
   outline: none;
   border-color: var(--holo-cyan);
   box-shadow: 0 0 0 3px rgba(0, 212, 255, 0.1);

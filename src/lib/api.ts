@@ -79,7 +79,15 @@ export interface Repository {
   updated_at: string;
 }
 
-export interface RepositoryCreateRequest {
+// URL-based repository creation (preferred)
+export interface RepositoryCreateByUrl {
+  url: string;
+  access_token: string;
+  auto_index?: boolean;
+}
+
+// Explicit field-based repository creation (backwards compatible)
+export interface RepositoryCreateByFields {
   provider: 'git-hub' | 'git-lab';
   owner: string;
   name: string;
@@ -87,6 +95,8 @@ export interface RepositoryCreateRequest {
   access_token: string;
   auto_index?: boolean;
 }
+
+export type RepositoryCreateRequest = RepositoryCreateByUrl | RepositoryCreateByFields;
 
 export interface Memory {
   id: string;
