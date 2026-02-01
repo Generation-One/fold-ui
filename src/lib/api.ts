@@ -73,10 +73,19 @@ export interface Repository {
   default_branch: string;
   status: 'connected' | 'syncing' | 'error' | 'disconnected';
   auto_index: boolean;
+  polling_enabled: boolean;
+  polling_interval_secs?: number;
   last_indexed_at?: string;
+  last_polled_at?: string;
   error_message?: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface RepositoryUpdateRequest {
+  auto_index?: boolean;
+  polling_enabled?: boolean;
+  polling_interval_secs?: number;
 }
 
 // URL-based repository creation (preferred)
@@ -397,6 +406,19 @@ class FoldApiClient {
     });
   }
 
+  async syncRepository(projectId: string, repoId: string): Promise<void> {
+    return this.request<void>(`/projects/${projectId}/repositories/${repoId}/sync`, {
+      method: 'POST',
+    });
+  }
+
+  async updateRepository(projectId: string, repoId: string, data: RepositoryUpdateRequest): Promise<Repository> {
+    return this.request<Repository>(`/projects/${projectId}/repositories/${repoId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
   async getMemories(
     projectId: string,
     params: { type?: string; limit?: number; offset?: number } = {}
@@ -682,6 +704,9 @@ export const api = {
     apiClient.createRepository(projectId, data),
   deleteRepository: (projectId: string, repoId: string) => apiClient.deleteRepository(projectId, repoId),
   reindexRepository: (projectId: string, repoId: string) => apiClient.reindexRepository(projectId, repoId),
+  syncRepository: (projectId: string, repoId: string) => apiClient.syncRepository(projectId, repoId),
+  updateRepository: (projectId: string, repoId: string, data: RepositoryUpdateRequest) =>
+    apiClient.updateRepository(projectId, repoId, data),
 
   // Memories
   listMemories: async (

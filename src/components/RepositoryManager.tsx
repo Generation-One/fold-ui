@@ -13,6 +13,7 @@ interface RepositoryManagerProps {
 export function RepositoryManager({ projectId }: RepositoryManagerProps) {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isReindexing, setIsReindexing] = useState<string | null>(null);
+  const [isSyncing, setIsSyncing] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -84,6 +85,33 @@ export function RepositoryManager({ projectId }: RepositoryManagerProps) {
       setTimeout(() => setSuccess(null), 3000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete repository');
+    }
+  };
+
+  const handleSync = async (repo: Repository) => {
+    setIsSyncing(repo.id);
+    setError(null);
+
+    try {
+      await api.syncRepository(projectId, repo.id);
+      setSuccess('Sync started');
+      mutate(`repositories-${projectId}`);
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to sync repository');
+    } finally {
+      setIsSyncing(null);
+    }
+  };
+
+  const handleTogglePolling = async (repo: Repository) => {
+    try {
+      await api.updateRepository(projectId, repo.id, {
+        polling_enabled: !repo.polling_enabled,
+      });
+      mutate(`repositories-${projectId}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update polling setting');
     }
   };
 
@@ -175,6 +203,36 @@ export function RepositoryManager({ projectId }: RepositoryManagerProps) {
                 <div className={styles.repoActions}>
                   <button
                     className={`${styles.actionBtn} ${styles.secondary}`}
+                    onClick={() => handleSync(repo)}
+                    disabled={isSyncing === repo.id}
+                    title="Sync repository"
+                  >
+                    {isSyncing === repo.id ? (
+                      <>
+                        <svg
+                          className={styles.spinner}
+                          width="14"
+                          height="14"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                        >
+                          <circle cx="12" cy="12" r="10" />
+                        </svg>
+                        Syncing
+                      </>
+                    ) : (
+                      <>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.66 0 3-4.03 3-9s-1.34-9-3-9m0 18c-1.66 0-3-4.03-3-9s1.34-9 3-9" />
+                        </svg>
+                        Sync
+                      </>
+                    )}
+                  </button>
+                  <button
+                    className={`${styles.actionBtn} ${styles.secondary}`}
                     onClick={() => handleReindex(repo)}
                     disabled={isReindexing === repo.id}
                     title="Reindex repository"
@@ -191,7 +249,6 @@ export function RepositoryManager({ projectId }: RepositoryManagerProps) {
                           strokeWidth="2"
                         >
                           <circle cx="12" cy="12" r="10" />
-                          <path d="M12 6v6l4 2" />
                         </svg>
                         Reindexing
                       </>
@@ -230,6 +287,15 @@ export function RepositoryManager({ projectId }: RepositoryManagerProps) {
                     <span className={styles.autoIndexBadgeDisabled}>Auto-index disabled</span>
                   )}
                 </div>
+                <button
+                  className={styles.pollingToggle}
+                  onClick={() => handleTogglePolling(repo)}
+                  title={repo.polling_enabled ? 'Disable polling' : 'Enable polling'}
+                >
+                  <span className={repo.polling_enabled ? styles.pollingEnabled : styles.pollingDisabled}>
+                    {repo.polling_enabled ? 'Polling on' : 'Polling off'}
+                  </span>
+                </button>
                 {repo.last_indexed_at && (
                   <div className={styles.metaItem}>
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
