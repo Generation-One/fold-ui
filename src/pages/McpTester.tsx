@@ -1,10 +1,13 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { JSONRPCClient } from 'json-rpc-2.0';
 import { useAuth } from '../stores/auth';
-import { api } from '../lib/api';
+import { api, API_BASE } from '../lib/api';
 import type { ApiTokenInfo, CreateTokenResponse } from '../lib/api';
 import styles from './McpTester.module.css';
+
+// Derive MCP URL from API_BASE
+const DEFAULT_MCP_URL = `${API_BASE}/mcp`;
 
 interface McpToolProperty {
   type: string;
@@ -29,7 +32,7 @@ type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 export function McpTester() {
   const { token } = useAuth();
   const [mcpUrl, setMcpUrl] = useState(
-    () => localStorage.getItem('mcp_url') || 'http://localhost:8765/mcp'
+    () => localStorage.getItem('mcp_url') || DEFAULT_MCP_URL
   );
   const [status, setStatus] = useState<ConnectionStatus>('disconnected');
   const [tools, setTools] = useState<McpTool[]>([]);
@@ -99,11 +102,11 @@ export function McpTester() {
   // Get the token to use in commands (newly created or current session token)
   const displayToken = newToken?.token || token || 'YOUR_TOKEN_HERE';
 
-  // MCP client configurations
-  const mcpClients = {
+  // MCP client configurations - uses DEFAULT_MCP_URL from env
+  const mcpClients = useMemo(() => ({
     'claude-code': {
       name: 'Claude Code',
-      command: `claude mcp add -t http -s user fold http://localhost:8765/mcp \\
+      command: `claude mcp add -t http -s user fold ${DEFAULT_MCP_URL} \\
   --header "Authorization: Bearer ${displayToken}"`,
       instructions: [
         'Run the command above in your terminal',
@@ -116,7 +119,7 @@ export function McpTester() {
       command: `{
   "mcpServers": {
     "fold": {
-      "url": "http://localhost:8765/mcp",
+      "url": "${DEFAULT_MCP_URL}",
       "headers": {
         "Authorization": "Bearer ${displayToken}"
       }
@@ -135,7 +138,7 @@ export function McpTester() {
       command: `{
   "mcpServers": {
     "fold": {
-      "url": "http://localhost:8765/mcp",
+      "url": "${DEFAULT_MCP_URL}",
       "headers": {
         "Authorization": "Bearer ${displayToken}"
       }
@@ -154,7 +157,7 @@ export function McpTester() {
       command: `{
   "mcpServers": {
     "fold": {
-      "url": "http://localhost:8765/mcp",
+      "url": "${DEFAULT_MCP_URL}",
       "headers": {
         "Authorization": "Bearer ${displayToken}"
       }
@@ -171,14 +174,14 @@ export function McpTester() {
     'generic': {
       name: 'Generic HTTP',
       command: `# MCP Server URL
-http://localhost:8765/mcp
+${DEFAULT_MCP_URL}
 
 # Required Headers
 Authorization: Bearer ${displayToken}
 Content-Type: application/json
 
 # Example curl request
-curl -X POST http://localhost:8765/mcp \\
+curl -X POST ${DEFAULT_MCP_URL} \\
   -H "Authorization: Bearer ${displayToken}" \\
   -H "Content-Type: application/json" \\
   -d '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}},"id":1}'`,
@@ -189,7 +192,7 @@ curl -X POST http://localhost:8765/mcp \\
         'See the MCP specification for available methods',
       ],
     },
-  };
+  }), [displayToken]);
 
   const currentClient = mcpClients[selectedClient as keyof typeof mcpClients];
 
@@ -609,7 +612,7 @@ curl -X POST http://localhost:8765/mcp \\
           className={styles.urlInput}
           value={mcpUrl}
           onChange={(e) => setMcpUrl(e.target.value)}
-          placeholder="MCP endpoint URL (e.g., http://localhost:8765/mcp)"
+          placeholder={`MCP endpoint URL (default: ${DEFAULT_MCP_URL})`}
           disabled={status === 'connected' || status === 'connecting'}
         />
         {status === 'connected' ? (

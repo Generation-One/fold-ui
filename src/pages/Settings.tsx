@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import useSWR, { mutate } from 'swr';
-import { api } from '../lib/api';
+import { api, API_BASE } from '../lib/api';
 import type { LLMProvider, LLMProviderCreateRequest, EmbeddingProvider, EmbeddingProviderCreateRequest, ClaudeCodeStatus } from '../lib/api';
 import { useAuth } from '../stores/auth';
 import { Modal } from '../components/ui';
@@ -440,7 +440,7 @@ export function Settings() {
                 {providers.providers.map((provider) => (
                   <a
                     key={provider.id}
-                    href={`http://localhost:8765/auth/login/${provider.id}`}
+                    href={`${API_BASE}/auth/login/${provider.id}`}
                     className={styles.providerBtn}
                   >
                     <span className={styles.providerIcon}>
