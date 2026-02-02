@@ -36,14 +36,27 @@ export interface SystemStatus {
 
 export interface Job {
   id: string;
-  type: string;
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'retry' | 'cancelled';
+  type: 'index_repo' | 'reindex_repo' | 'sync_metadata' | 'index_history' | string;
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'retry' | 'cancelled' | 'paused';
   project_id?: string;
+  repository_id?: string;
+  priority?: number;
+  processed_items?: number;
+  total_items?: number;
   progress?: number;
+  payload?: Record<string, unknown>;
   created_at: string;
   started_at?: string;
   completed_at?: string;
   error?: string;
+}
+
+export interface JobLog {
+  id: number;
+  job_id: string;
+  level: 'debug' | 'info' | 'warn' | 'error';
+  message: string;
+  created_at: string;
 }
 
 export interface Project {
@@ -225,6 +238,32 @@ export interface BootstrapResponse {
   user_id: string;
   api_token: string;
   message: string;
+}
+
+// API Token types
+export interface ApiTokenInfo {
+  id: string;
+  name: string;
+  token_prefix: string;
+  created_at: string;
+  last_used: string | null;
+  expires_at: string | null;
+  revoked_at: string | null;
+}
+
+export interface CreateTokenRequest {
+  name: string;
+  scopes?: string[];
+  expires_in_days?: number;
+}
+
+export interface CreateTokenResponse {
+  id: string;
+  name: string;
+  token: string;
+  token_prefix: string;
+  created_at: string;
+  expires_at: string | null;
 }
 
 export interface ApiError {
@@ -688,10 +727,55 @@ class FoldApiClient {
     return this.request('/file-sources/providers');
   }
 
+  // Jobs (at /status/jobs)
+  async listJobsFiltered(
+    params: { status?: string; job_type?: string; limit?: number; offset?: number } = {}
+  ): Promise<JobsResponse> {
+    const query = new URLSearchParams();
+    if (params.status) query.set('status', params.status);
+    if (params.job_type) query.set('job_type', params.job_type);
+    if (params.limit) query.set('limit', String(params.limit));
+    if (params.offset) query.set('offset', String(params.offset));
+    return this.request<JobsResponse>(`/status/jobs?${query}`);
+  }
+
+  async getJobById(jobId: string): Promise<RawJob> {
+    return this.request<RawJob>(`/status/jobs/${jobId}`);
+  }
+
+  async getJobLogs(jobId: string, params: { level?: string; limit?: number } = {}): Promise<{
+    job_id: string;
+    logs: JobLog[];
+    total: number;
+  }> {
+    const query = new URLSearchParams();
+    if (params.level) query.set('level', params.level);
+    if (params.limit) query.set('limit', String(params.limit));
+    return this.request(`/status/jobs/${jobId}/logs?${query}`);
+  }
+
   // Auth logout
   async logout(): Promise<void> {
     return this.request('/auth/logout', {
       method: 'POST',
+    });
+  }
+
+  // API Token management
+  async listApiTokens(): Promise<{ tokens: ApiTokenInfo[] }> {
+    return this.request<{ tokens: ApiTokenInfo[] }>('/auth/tokens');
+  }
+
+  async createApiToken(data: CreateTokenRequest): Promise<CreateTokenResponse> {
+    return this.request<CreateTokenResponse>('/auth/tokens', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async revokeApiToken(tokenId: string): Promise<void> {
+    return this.request<void>(`/auth/tokens/${tokenId}`, {
+      method: 'DELETE',
     });
   }
 }
@@ -824,6 +908,84 @@ export const api = {
   // File sources
   listFileSourceProviders: () => apiClient.listFileSourceProviders(),
 
+  // Jobs
+  listJobsFiltered: async (
+    params: { status?: string; job_type?: string; limit?: number; offset?: number } = {}
+  ): Promise<Job[]> => {
+    const result = await apiClient.listJobsFiltered(params);
+    return result.jobs.map((j: RawJob): Job => ({
+      id: j.id,
+      type: j.job_type,
+      status: j.status,
+      project_id: j.project_id,
+      repository_id: j.repository_id,
+      priority: j.priority,
+      processed_items: j.processed_items,
+      total_items: j.total_items,
+      progress: j.total_items && j.processed_items !== undefined
+        ? j.processed_items / j.total_items
+        : undefined,
+      created_at: j.created_at,
+      started_at: j.started_at,
+      completed_at: j.completed_at,
+      error: j.error,
+    }));
+  },
+  listJobsFilteredWithMeta: async (
+    params: { status?: string; job_type?: string; limit?: number; offset?: number } = {}
+  ): Promise<{ jobs: Job[]; total: number; offset: number; limit: number }> => {
+    const result = await apiClient.listJobsFiltered(params);
+    return {
+      jobs: result.jobs.map((j: RawJob): Job => ({
+        id: j.id,
+        type: j.job_type,
+        status: j.status,
+        project_id: j.project_id,
+        repository_id: j.repository_id,
+        priority: j.priority,
+        processed_items: j.processed_items,
+        total_items: j.total_items,
+        progress: j.total_items && j.processed_items !== undefined
+          ? j.processed_items / j.total_items
+          : undefined,
+        created_at: j.created_at,
+        started_at: j.started_at,
+        completed_at: j.completed_at,
+        error: j.error,
+      })),
+      total: result.total,
+      offset: result.offset,
+      limit: result.limit,
+    };
+  },
+  getJobById: async (jobId: string): Promise<Job> => {
+    const j = await apiClient.getJobById(jobId);
+    return {
+      id: j.id,
+      type: j.job_type,
+      status: j.status,
+      project_id: j.project_id,
+      repository_id: j.repository_id,
+      priority: j.priority,
+      processed_items: j.processed_items,
+      total_items: j.total_items,
+      progress: j.total_items && j.processed_items !== undefined
+        ? j.processed_items / j.total_items
+        : undefined,
+      created_at: j.created_at,
+      started_at: j.started_at,
+      completed_at: j.completed_at,
+      error: j.error,
+    };
+  },
+  getJobLogs: (jobId: string, params?: { level?: string; limit?: number }) =>
+    apiClient.getJobLogs(jobId, params),
+
   // Auth
   logout: () => apiClient.logout(),
+
+  // API Token management
+  listApiTokens: () => apiClient.listApiTokens(),
+  createApiToken: (data: CreateTokenRequest) => apiClient.createApiToken(data),
+  revokeApiToken: (tokenId: string) => apiClient.revokeApiToken(tokenId),
 };

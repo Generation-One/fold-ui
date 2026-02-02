@@ -287,3 +287,59 @@
   letter-spacing: 0.1em;
   color: var(--text-tertiary);
 }
+
+/* Paused status */
+.statusDot.paused {
+  background: var(--text-tertiary);
+}
+
+.statusLabel.paused {
+  color: var(--text-tertiary);
+}
+
+/* Job progress text */
+.jobProgress {
+  font-size: 0.7rem;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--holo-cyan);
+  margin-top: 0.25rem;
+}
+
+/* Pagination */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  padding: 1rem;
+}
+
+.pageBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 0.875rem;
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  transition: all 0.2s var(--ease-out-expo);
+}
+
+.pageBtn:hover:not(:disabled) {
+  border-color: var(--border-active);
+  color: var(--text-primary);
+}
+
+.pageBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.pageInfo {
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+  font-family: 'JetBrains Mono', monospace;
+}

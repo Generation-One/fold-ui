@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { JSONRPCClient } from 'json-rpc-2.0';
 import { useAuth } from '../stores/auth';
+import { api } from '../lib/api';
+import type { ApiTokenInfo, CreateTokenResponse } from '../lib/api';
 import styles from './McpTester.module.css';
 
 interface McpToolProperty {
@@ -37,7 +39,159 @@ export function McpTester() {
   const [loading, setLoading] = useState(false);
   const [logs, setLogs] = useState<Array<{ type: 'send' | 'recv' | 'info' | 'error'; message: string; time: Date }>>([]);
 
+  // Page tabs
+  const [activeTab, setActiveTab] = useState<'setup' | 'tester'>('setup');
+
+  // MCP Setup state
+  const [tokens, setTokens] = useState<ApiTokenInfo[]>([]);
+  const [newTokenName, setNewTokenName] = useState('');
+  const [newToken, setNewToken] = useState<CreateTokenResponse | null>(null);
+  const [creatingToken, setCreatingToken] = useState(false);
+  const [selectedClient, setSelectedClient] = useState<string>('claude-code');
+  const [copiedCommand, setCopiedCommand] = useState<string | null>(null);
+
   const clientRef = useRef<JSONRPCClient | null>(null);
+
+  // Fetch tokens on mount
+  useEffect(() => {
+    if (token) {
+      api.listApiTokens().then(res => setTokens(res.tokens)).catch(() => {});
+    }
+  }, [token]);
+
+  const handleCreateToken = async () => {
+    if (!newTokenName.trim()) return;
+    setCreatingToken(true);
+    try {
+      const created = await api.createApiToken({ name: newTokenName.trim() });
+      setNewToken(created);
+      setNewTokenName('');
+      // Refresh token list
+      const res = await api.listApiTokens();
+      setTokens(res.tokens);
+    } catch (err) {
+      console.error('Failed to create token:', err);
+    } finally {
+      setCreatingToken(false);
+    }
+  };
+
+  const handleRevokeToken = async (tokenId: string) => {
+    try {
+      await api.revokeApiToken(tokenId);
+      const res = await api.listApiTokens();
+      setTokens(res.tokens);
+    } catch (err) {
+      console.error('Failed to revoke token:', err);
+    }
+  };
+
+  const copyToClipboard = async (text: string, id: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedCommand(id);
+      setTimeout(() => setCopiedCommand(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  // Get the token to use in commands (newly created or current session token)
+  const displayToken = newToken?.token || token || 'YOUR_TOKEN_HERE';
+
+  // MCP client configurations
+  const mcpClients = {
+    'claude-code': {
+      name: 'Claude Code',
+      command: `claude mcp add -t http -s user fold http://localhost:8765/mcp \\
+  --header "Authorization: Bearer ${displayToken}"`,
+      instructions: [
+        'Run the command above in your terminal',
+        'Restart Claude Code or run <code>claude mcp list</code> to verify',
+        'The Fold MCP tools will be available in your Claude Code sessions',
+      ],
+    },
+    'claude-desktop': {
+      name: 'Claude Desktop',
+      command: `{
+  "mcpServers": {
+    "fold": {
+      "url": "http://localhost:8765/mcp",
+      "headers": {
+        "Authorization": "Bearer ${displayToken}"
+      }
+    }
+  }
+}`,
+      instructions: [
+        'Open Claude Desktop settings',
+        'Navigate to the MCP Servers configuration',
+        'Add the JSON configuration above to your settings',
+        'Restart Claude Desktop to apply changes',
+      ],
+    },
+    'cursor': {
+      name: 'Cursor',
+      command: `{
+  "mcpServers": {
+    "fold": {
+      "url": "http://localhost:8765/mcp",
+      "headers": {
+        "Authorization": "Bearer ${displayToken}"
+      }
+    }
+  }
+}`,
+      instructions: [
+        'Open Cursor Settings (Cmd/Ctrl + ,)',
+        'Search for "MCP" or navigate to Features > MCP',
+        'Add a new MCP server with the configuration above',
+        'Restart Cursor to enable the Fold tools',
+      ],
+    },
+    'windsurf': {
+      name: 'Windsurf',
+      command: `{
+  "mcpServers": {
+    "fold": {
+      "url": "http://localhost:8765/mcp",
+      "headers": {
+        "Authorization": "Bearer ${displayToken}"
+      }
+    }
+  }
+}`,
+      instructions: [
+        'Open Windsurf Settings',
+        'Navigate to the MCP configuration section',
+        'Add the Fold server configuration',
+        'Restart the editor to connect to Fold',
+      ],
+    },
+    'generic': {
+      name: 'Generic HTTP',
+      command: `# MCP Server URL
+http://localhost:8765/mcp
+
+# Required Headers
+Authorization: Bearer ${displayToken}
+Content-Type: application/json
+
+# Example curl request
+curl -X POST http://localhost:8765/mcp \\
+  -H "Authorization: Bearer ${displayToken}" \\
+  -H "Content-Type: application/json" \\
+  -d '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}},"id":1}'`,
+      instructions: [
+        'Use the URL and headers above for any MCP-compatible client',
+        'The server uses JSON-RPC 2.0 over HTTP',
+        'All requests require the Authorization header',
+        'See the MCP specification for available methods',
+      ],
+    },
+  };
+
+  const currentClient = mcpClients[selectedClient as keyof typeof mcpClients];
 
   const addLog = useCallback((type: 'send' | 'recv' | 'info' | 'error', message: string) => {
     setLogs([{ type, message, time: new Date() }]);
@@ -275,11 +429,173 @@ export function McpTester() {
     >
       {/* Header */}
       <div className={styles.pageHeader}>
-        <h1 className={styles.pageTitle}>MCP Tester</h1>
-        <p className={styles.pageSubtitle}>Connect and test MCP tools via JSON-RPC 2.0</p>
+        <h1 className={styles.pageTitle}>MCP Tools</h1>
+        <p className={styles.pageSubtitle}>Configure MCP clients and test tools via JSON-RPC 2.0</p>
       </div>
 
-      {/* Connection Bar */}
+      {/* Page Tabs */}
+      <div className={styles.pageTabs}>
+        <button
+          className={`${styles.pageTab} ${activeTab === 'setup' ? styles.active : ''}`}
+          onClick={() => setActiveTab('setup')}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" />
+          </svg>
+          Client Setup
+        </button>
+        <button
+          className={`${styles.pageTab} ${activeTab === 'tester' ? styles.active : ''}`}
+          onClick={() => setActiveTab('tester')}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <polyline points="4 17 10 11 4 5" />
+            <line x1="12" y1="19" x2="20" y2="19" />
+          </svg>
+          Tester
+        </button>
+      </div>
+
+      {/* Client Setup Tab */}
+      {activeTab === 'setup' && (
+        <div className={styles.setupTab}>
+            {/* Token Management */}
+            <div className={styles.tokenSection}>
+              <div className={styles.tokenSectionTitle}>API Tokens</div>
+
+              {tokens.filter(t => !t.revoked_at).length === 0 ? (
+                <div className={styles.emptyTokens}>
+                  No active API tokens. Create one to use with MCP clients.
+                </div>
+              ) : (
+                <div className={styles.tokenList}>
+                  {tokens.filter(t => !t.revoked_at).map(t => (
+                    <div key={t.id} className={styles.tokenItem}>
+                      <div className={styles.tokenInfo}>
+                        <span className={styles.tokenName}>{t.name}</span>
+                        <div className={styles.tokenMeta}>
+                          <span className={styles.tokenPrefix}>fold_{t.token_prefix}_...</span>
+                          <span>Created {new Date(t.created_at).toLocaleDateString()}</span>
+                          {t.last_used && <span>Last used {new Date(t.last_used).toLocaleDateString()}</span>}
+                        </div>
+                      </div>
+                      <div className={styles.tokenActions}>
+                        <button className={styles.revokeBtn} onClick={() => handleRevokeToken(t.id)}>
+                          Revoke
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className={styles.createTokenForm}>
+                <input
+                  type="text"
+                  className={styles.tokenNameInput}
+                  value={newTokenName}
+                  onChange={(e) => setNewTokenName(e.target.value)}
+                  placeholder="Token name (e.g., Claude Code, Cursor)"
+                  onKeyDown={(e) => e.key === 'Enter' && handleCreateToken()}
+                />
+                <button
+                  className={styles.createTokenBtn}
+                  onClick={handleCreateToken}
+                  disabled={creatingToken || !newTokenName.trim()}
+                >
+                  {creatingToken ? 'Creating...' : 'Generate Token'}
+                </button>
+              </div>
+
+              {newToken && (
+                <div className={styles.newTokenDisplay}>
+                  <div className={styles.newTokenLabel}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
+                      <polyline points="22 4 12 14.01 9 11.01" />
+                    </svg>
+                    New token created - copy it now, it won't be shown again!
+                  </div>
+                  <div className={styles.newTokenValue}>
+                    <code className={styles.newTokenText}>{newToken.token}</code>
+                    <button
+                      className={`${styles.copyBtn} ${copiedCommand === 'new-token' ? styles.copied : ''}`}
+                      onClick={() => copyToClipboard(newToken.token, 'new-token')}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        {copiedCommand === 'new-token' ? (
+                          <polyline points="20 6 9 17 4 12" />
+                        ) : (
+                          <>
+                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                            <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+                          </>
+                        )}
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* MCP Client Instructions */}
+            <div className={styles.tokenSectionTitle}>Setup Instructions</div>
+
+            <div className={styles.mcpClientTabs}>
+              {Object.entries(mcpClients).map(([key, client]) => (
+                <button
+                  key={key}
+                  className={`${styles.mcpClientTab} ${selectedClient === key ? styles.active : ''}`}
+                  onClick={() => setSelectedClient(key)}
+                >
+                  {client.name}
+                </button>
+              ))}
+            </div>
+
+            <div className={styles.codeBlock}>
+              <div className={styles.codeBlockHeader}>
+                <span className={styles.codeBlockTitle}>
+                  {selectedClient === 'claude-code' ? 'Terminal Command' : 'Configuration'}
+                </span>
+                <button
+                  className={`${styles.codeBlockCopy} ${copiedCommand === 'command' ? styles.copied : ''}`}
+                  onClick={() => copyToClipboard(currentClient.command, 'command')}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    {copiedCommand === 'command' ? (
+                      <polyline points="20 6 9 17 4 12" />
+                    ) : (
+                      <>
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                        <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+                      </>
+                    )}
+                  </svg>
+                  {copiedCommand === 'command' ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
+              <div className={styles.codeBlockContent}>
+                <pre>{currentClient.command}</pre>
+              </div>
+            </div>
+
+            <div className={styles.instructions}>
+              <div className={styles.instructionsTitle}>How to set up {currentClient.name}</div>
+              <ol className={styles.instructionsList}>
+                {currentClient.instructions.map((instruction, i) => (
+                  <li key={i} dangerouslySetInnerHTML={{ __html: instruction }} />
+                ))}
+              </ol>
+            </div>
+        </div>
+      )}
+
+      {/* Tester Tab */}
+      {activeTab === 'tester' && (
+        <>
+          {/* Connection Bar */}
       <div className={styles.connectionBar}>
         <div className={`${styles.tokenIndicator} ${token ? styles.hasToken : ''}`}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -470,6 +786,8 @@ export function McpTester() {
           )}
         </div>
       </div>
+        </>
+      )}
     </motion.div>
   );
 }

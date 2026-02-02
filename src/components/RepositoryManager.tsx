@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import useSWR, { mutate } from 'swr';
 import { api } from '../lib/api';
-import type { Repository, RepositoryCreateByUrl } from '../lib/api';
+import type { Repository, RepositoryCreateByUrl, Job } from '../lib/api';
 import { Modal, EmptyState } from './ui';
 import styles from './RepositoryManager.module.css';
 
@@ -23,6 +23,7 @@ export function RepositoryManager({ projectId }: RepositoryManagerProps) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [selectedProvider, setSelectedProvider] = useState<Provider>('github');
+  const [activeJobs, setActiveJobs] = useState<Record<string, Job>>({});
 
   const { data: repositories, isLoading, error: fetchError } = useSWR<Repository[]>(
     projectId ? `repositories-${projectId}` : null,
@@ -35,6 +36,44 @@ export function RepositoryManager({ projectId }: RepositoryManagerProps) {
 
   // Ensure repositories is always an array
   const repoList = Array.isArray(repositories) ? repositories : [];
+
+  // Poll for job status when reindexing or syncing
+  useEffect(() => {
+    const activeRepoId = isReindexing || isSyncing;
+    if (!activeRepoId) return;
+
+    const pollJobs = async () => {
+      try {
+        const jobs = await api.listJobsFiltered({ status: 'running', job_type: 'reindex_repo' });
+        // Find job for this repo (match by repository_id or project_id)
+        const repoJob = jobs.find(j =>
+          j.repository_id === activeRepoId || j.project_id === projectId
+        );
+
+        if (repoJob) {
+          setActiveJobs(prev => ({ ...prev, [activeRepoId]: repoJob }));
+        } else {
+          // Job finished, clear state and refresh
+          if (isReindexing === activeRepoId) setIsReindexing(null);
+          if (isSyncing === activeRepoId) setIsSyncing(null);
+          setActiveJobs(prev => {
+            const next = { ...prev };
+            delete next[activeRepoId];
+            return next;
+          });
+          mutate(`repositories-${projectId}`);
+        }
+      } catch (err) {
+        console.error('Failed to poll jobs:', err);
+      }
+    };
+
+    // Poll immediately, then every 2 seconds
+    pollJobs();
+    const interval = setInterval(pollJobs, 2000);
+
+    return () => clearInterval(interval);
+  }, [isReindexing, isSyncing, projectId]);
 
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -300,7 +339,9 @@ export function RepositoryManager({ projectId }: RepositoryManagerProps) {
                         >
                           <circle cx="12" cy="12" r="10" />
                         </svg>
-                        Reindexing
+                        {activeJobs[repo.id]?.processed_items !== undefined
+                          ? `${activeJobs[repo.id].processed_items} files`
+                          : 'Starting...'}
                       </>
                     ) : (
                       <>

@@ -6,28 +6,60 @@ import type { Job } from '../lib/api';
 import { EmptyState } from '../components/ui';
 import styles from './Jobs.module.css';
 
-type JobStatus = 'all' | 'pending' | 'running' | 'completed' | 'failed';
+type JobStatus = 'all' | 'pending' | 'running' | 'completed' | 'failed' | 'paused';
 
-const STATUS_FILTERS: JobStatus[] = ['all', 'pending', 'running', 'completed', 'failed'];
+const STATUS_FILTERS: JobStatus[] = ['all', 'pending', 'running', 'completed', 'failed', 'paused'];
+const PAGE_SIZE = 20;
+
+interface JobsResponse {
+  jobs: Job[];
+  total: number;
+  offset: number;
+  limit: number;
+}
 
 export function Jobs() {
   const [statusFilter, setStatusFilter] = useState<JobStatus>('all');
+  const [page, setPage] = useState(0);
 
-  const { data: jobs, isLoading, mutate } = useSWR<Job[]>('jobs', api.getJobs, {
-    refreshInterval: 5000,
-  });
-
-  const filteredJobs = jobs?.filter((job) =>
-    statusFilter === 'all' ? true : job.status === statusFilter
+  // Fetch jobs with server-side filtering and pagination
+  const { data, isLoading, mutate } = useSWR<JobsResponse>(
+    ['jobs', statusFilter, page],
+    async () => {
+      const result = await api.listJobsFilteredWithMeta({
+        status: statusFilter === 'all' ? undefined : statusFilter,
+        limit: PAGE_SIZE,
+        offset: page * PAGE_SIZE,
+      });
+      return result;
+    },
+    { refreshInterval: 5000 }
   );
 
-  const statusCounts = jobs?.reduce(
+  const jobs = data?.jobs;
+  const total = data?.total ?? 0;
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+
+  // Fetch all jobs once to get status counts (lightweight, cached)
+  const { data: allJobsData } = useSWR<JobsResponse>(
+    'jobs-counts',
+    () => api.listJobsFilteredWithMeta({ limit: 1000 }),
+    { refreshInterval: 10000 }
+  );
+
+  const statusCounts = allJobsData?.jobs?.reduce(
     (acc, job) => {
       acc[job.status] = (acc[job.status] || 0) + 1;
       return acc;
     },
-    { pending: 0, running: 0, completed: 0, failed: 0 } as Record<string, number>
+    { pending: 0, running: 0, completed: 0, failed: 0, paused: 0 } as Record<string, number>
   );
+
+  // Reset to page 0 when filter changes
+  const handleFilterChange = (status: JobStatus) => {
+    setStatusFilter(status);
+    setPage(0);
+  };
 
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -123,7 +155,7 @@ export function Jobs() {
           <button
             key={status}
             className={`${styles.statusChip} ${statusFilter === status ? styles.active : ''}`}
-            onClick={() => setStatusFilter(status)}
+            onClick={() => handleFilterChange(status)}
           >
             {status === 'all' ? 'All' : status}
             {status !== 'all' && statusCounts && (
@@ -136,7 +168,7 @@ export function Jobs() {
       {/* Content */}
       {isLoading ? (
         <div className={styles.loading}>Loading jobs...</div>
-      ) : filteredJobs?.length === 0 ? (
+      ) : jobs?.length === 0 ? (
         <EmptyState
           icon={
             <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -148,50 +180,89 @@ export function Jobs() {
           description="The job queue is empty"
         />
       ) : (
-        <div className={styles.jobList}>
-          {filteredJobs?.map((job, index) => (
-            <motion.div
-              key={job.id}
-              className={styles.jobCard}
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.2, delay: index * 0.03 }}
-            >
-              <div className={styles.jobIcon}>{getJobIcon(job.type)}</div>
+        <>
+          <div className={styles.jobList}>
+            {jobs?.map((job, index) => (
+              <motion.div
+                key={job.id}
+                className={styles.jobCard}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.2, delay: index * 0.03 }}
+              >
+                <div className={styles.jobIcon}>{getJobIcon(job.type)}</div>
 
-              <div className={styles.jobInfo}>
-                <div className={styles.jobType}>{job.type}</div>
-                <div className={styles.jobMeta}>
-                  <span className={styles.jobId}>#{job.id.slice(0, 8)}</span>
-                  {job.project_id && <span>Project: {job.project_id.slice(0, 8)}</span>}
-                </div>
-                {job.error && <div className={styles.jobError}>{job.error}</div>}
-              </div>
-
-              {job.status === 'running' && job.progress !== undefined && (
-                <div className={styles.progressWrapper}>
-                  <div className={styles.progressBar}>
-                    <div
-                      className={styles.progressFill}
-                      style={{ width: `${job.progress * 100}%` }}
-                    />
+                <div className={styles.jobInfo}>
+                  <div className={styles.jobType}>{job.type}</div>
+                  <div className={styles.jobMeta}>
+                    <span className={styles.jobId}>#{job.id.slice(0, 8)}</span>
+                    {job.project_id && <span>Project: {job.project_id.slice(0, 8)}</span>}
+                    {job.repository_id && <span>Repo: {job.repository_id.slice(0, 8)}</span>}
                   </div>
+                  {job.processed_items !== undefined && (
+                    <div className={styles.jobProgress}>
+                      {job.processed_items} {job.total_items ? `/ ${job.total_items}` : ''} items
+                    </div>
+                  )}
+                  {job.error && <div className={styles.jobError}>{job.error}</div>}
                 </div>
-              )}
 
-              <div className={styles.jobStatus}>
-                <span className={`${styles.statusDot} ${styles[job.status]}`} />
-                <span className={`${styles.statusLabel} ${styles[job.status]}`}>
-                  {job.status}
-                </span>
-              </div>
+                {job.status === 'running' && job.progress !== undefined && (
+                  <div className={styles.progressWrapper}>
+                    <div className={styles.progressBar}>
+                      <div
+                        className={styles.progressFill}
+                        style={{ width: `${job.progress * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
 
-              <div className={styles.jobTime}>
-                {formatTime(job.created_at)}
-              </div>
-            </motion.div>
-          ))}
-        </div>
+                <div className={styles.jobStatus}>
+                  <span className={`${styles.statusDot} ${styles[job.status]}`} />
+                  <span className={`${styles.statusLabel} ${styles[job.status]}`}>
+                    {job.status}
+                  </span>
+                </div>
+
+                <div className={styles.jobTime}>
+                  {formatTime(job.created_at)}
+                </div>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className={styles.pagination}>
+              <button
+                className={styles.pageBtn}
+                onClick={() => setPage(p => Math.max(0, p - 1))}
+                disabled={page === 0}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="15 18 9 12 15 6" />
+                </svg>
+                Previous
+              </button>
+
+              <span className={styles.pageInfo}>
+                Page {page + 1} of {totalPages} ({total} jobs)
+              </span>
+
+              <button
+                className={styles.pageBtn}
+                onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+                disabled={page >= totalPages - 1}
+              >
+                Next
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+              </button>
+            </div>
+          )}
+        </>
       )}
     </motion.div>
   );
