@@ -27,7 +27,6 @@ export function Projects() {
       name: formData.get('name') as string,
       slug: formData.get('slug') as string || undefined,
       description: formData.get('description') as string || undefined,
-      repo_url: formData.get('repo_url') as string || undefined,
     };
 
     try {
@@ -217,19 +216,6 @@ export function Projects() {
               name="description"
               className={styles.textarea}
               placeholder="What's this project about?"
-            />
-          </div>
-
-          <div className={styles.formGroup}>
-            <label className={styles.label} htmlFor="repo_url">
-              Repository URL
-            </label>
-            <input
-              type="url"
-              id="repo_url"
-              name="repo_url"
-              className={styles.input}
-              placeholder="https://github.com/user/repo"
             />
           </div>
         </form>
