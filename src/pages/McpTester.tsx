@@ -106,31 +106,28 @@ export function McpTester() {
   const mcpClients = useMemo(() => ({
     'claude-code': {
       name: 'Claude Code',
-      command: `claude mcp add -t http -s user fold ${DEFAULT_MCP_URL} \\
-  --header "Authorization: Bearer ${displayToken}"`,
+      command: `claude mcp add -t http -s user fold ${DEFAULT_MCP_URL}?token=${displayToken}`,
       instructions: [
-        'Run the command above in your terminal',
+        'Run the command above in your terminal (Windows, Mac, or Linux)',
+        'For authentication via Authorization header instead, use: <code>--header "Authorization: Bearer ${displayToken}"</code>',
         'Restart Claude Code or run <code>claude mcp list</code> to verify',
         'The Fold MCP tools will be available in your Claude Code sessions',
       ],
     },
     'claude-desktop': {
       name: 'Claude Desktop',
-      command: `{
-  "mcpServers": {
-    "fold": {
-      "url": "${DEFAULT_MCP_URL}",
-      "headers": {
-        "Authorization": "Bearer ${displayToken}"
-      }
-    }
-  }
-}`,
+      command: `${DEFAULT_MCP_URL}?token=${displayToken}
+
+Alternative with Authorization header:
+${DEFAULT_MCP_URL}
+Header: Authorization: Bearer ${displayToken}`,
       instructions: [
-        'Open Claude Desktop settings',
-        'Navigate to the MCP Servers configuration',
-        'Add the JSON configuration above to your settings',
-        'Restart Claude Desktop to apply changes',
+        'Open Claude Desktop and go to <strong>Settings > Connectors</strong>',
+        'Click <strong>"Add custom connector"</strong>',
+        'Enter the MCP server URL above (with embedded token)',
+        'Leave OAuth credentials blank unless your server requires them',
+        'Click <strong>"Add"</strong> to complete setup',
+        'Toggle the connector on in the conversation to use Fold tools',
       ],
     },
     'cursor': {
@@ -176,20 +173,41 @@ export function McpTester() {
       command: `# MCP Server URL
 ${DEFAULT_MCP_URL}
 
-# Required Headers
+# Authentication (choose one):
+# 1. Authorization Header (Recommended)
 Authorization: Bearer ${displayToken}
-Content-Type: application/json
 
-# Example curl request
+# 2. Query String (for clients with header limitations)
+${DEFAULT_MCP_URL}?token=${displayToken}
+
+# Example curl with header
 curl -X POST ${DEFAULT_MCP_URL} \\
   -H "Authorization: Bearer ${displayToken}" \\
   -H "Content-Type: application/json" \\
   -d '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}},"id":1}'`,
       instructions: [
-        'Use the URL and headers above for any MCP-compatible client',
+        'Use the URL above for any MCP-compatible client',
         'The server uses JSON-RPC 2.0 over HTTP',
-        'All requests require the Authorization header',
+        'Authenticate using either Authorization header <strong>(recommended)</strong> or query string token parameter',
+        'For query string auth: append <code>?token=YOUR_TOKEN</code> to the URL',
         'See the MCP specification for available methods',
+      ],
+    },
+    'custom-connector': {
+      name: 'Claude Custom Connector',
+      command: `{
+  "apiUrl": "${DEFAULT_MCP_URL}?token=${displayToken}",
+  "protocol": "json-rpc",
+  "headers": {
+    "Content-Type": "application/json"
+  }
+}`,
+      instructions: [
+        'Add a new Custom Connector in Claude settings',
+        'Use the URL with embedded token (query string) above',
+        'Alternatively, use Authorization header: <code>Authorization: Bearer ${displayToken}</code>',
+        'The token in the URL allows Claude to authenticate without requiring custom headers',
+        'This is useful when the connector client doesn\'t support custom headers',
       ],
     },
   }), [displayToken]);
