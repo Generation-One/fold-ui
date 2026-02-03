@@ -181,6 +181,28 @@
   }
 }
 
+.contentLoading {
+  padding: 1rem 0;
+  color: var(--text-tertiary);
+  font-size: 0.8rem;
+}
+
+.memoryContentText {
+  margin-top: 1rem;
+  padding: 1rem;
+  background: var(--elevated);
+  border-radius: var(--radius-md);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: auto;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
 .memoryText {
   font-size: 0.85rem;
   line-height: 1.7;

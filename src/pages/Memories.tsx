@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import useSWR, { mutate } from 'swr';
 import { api } from '../lib/api';
 import { useProject } from '../stores/project';
-import type { Memory, MemorySource, Project } from '../lib/api';
+import type { Memory, MemorySource, MemoryContext, Project } from '../lib/api';
 import { Modal, EmptyState, SourceBadge, Pagination } from '../components/ui';
 import styles from './Memories.module.css';
 
@@ -20,6 +20,8 @@ export function Memories() {
   const selectedProject = selectedProjectId;
   const [selectedSource, setSelectedSource] = useState<MemorySource | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedContent, setExpandedContent] = useState<MemoryContext | null>(null);
+  const [loadingContent, setLoadingContent] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
@@ -74,6 +76,27 @@ export function Memories() {
     }
   };
 
+  const handleExpand = async (memoryId: string) => {
+    if (expandedId === memoryId) {
+      setExpandedId(null);
+      setExpandedContent(null);
+      return;
+    }
+
+    setExpandedId(memoryId);
+    setExpandedContent(null);
+    setLoadingContent(true);
+
+    try {
+      const context = await api.getMemoryContext(selectedProject!, memoryId, 1);
+      setExpandedContent(context);
+    } catch (err) {
+      console.error('Failed to load memory content:', err);
+    } finally {
+      setLoadingContent(false);
+    }
+  };
+
   const handleDelete = async (memory: Memory) => {
     if (!selectedProject) return;
     if (!confirm('Delete this memory? This cannot be undone.')) return;
@@ -81,6 +104,10 @@ export function Memories() {
     try {
       await api.deleteMemory(selectedProject, memory.id);
       mutate(memoriesKey);
+      if (expandedId === memory.id) {
+        setExpandedId(null);
+        setExpandedContent(null);
+      }
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to delete memory');
     }
@@ -193,7 +220,7 @@ export function Memories() {
               >
                 <div
                   className={styles.memoryHeader}
-                  onClick={() => setExpandedId(expandedId === memory.id ? null : memory.id)}
+                  onClick={() => handleExpand(memory.id)}
                 >
                   <div className={styles.memoryHeaderLeft}>
                     <SourceBadge source={memory.source} />
@@ -219,6 +246,16 @@ export function Memories() {
 
                 {expandedId === memory.id && (
                   <div className={styles.memoryContent}>
+                    {/* Loading state */}
+                    {loadingContent && (
+                      <div className={styles.contentLoading}>Loading content...</div>
+                    )}
+
+                    {/* Main content */}
+                    {expandedContent?.content && (
+                      <pre className={styles.memoryContentText}>{expandedContent.content}</pre>
+                    )}
+
                     {/* Context summary */}
                     {memory.context && (
                       <p className={styles.memoryText}>{memory.context}</p>
