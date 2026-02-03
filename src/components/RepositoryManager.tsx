@@ -77,6 +77,7 @@ export function RepositoryManager({ projectId }: RepositoryManagerProps) {
 
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (isCreating) return;
     setIsCreating(true);
     setError(null);
     setSuccess(null);

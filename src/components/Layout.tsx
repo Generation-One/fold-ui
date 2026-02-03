@@ -115,6 +115,30 @@ export function Layout() {
 
   return (
     <div className={styles.app}>
+      {/* AI Providers Offline Warning Banner */}
+      {status && (!status.llm?.available || !status.embeddings?.loaded) && (
+        <div className={styles.warningBanner}>
+          <div className={styles.warningContent}>
+            <svg className={styles.warningIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+              <line x1="12" y1="9" x2="12" y2="13" />
+              <line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+            <div className={styles.warningText}>
+              <span className={styles.warningTitle}>AI Providers Offline</span>
+              <span className={styles.warningMessage}>
+                — {!status.llm?.available && !status.embeddings?.loaded
+                  ? 'LLM and embedding providers not available'
+                  : !status.llm?.available
+                  ? 'LLM provider not available'
+                  : 'Embedding provider not available'}
+                {status.jobs?.paused > 0 && ` · ${status.jobs.paused} job${status.jobs.paused > 1 ? 's' : ''} paused`}
+              </span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className={styles.header}>
         <Link to="/" className={styles.logo}>
@@ -155,13 +179,17 @@ export function Layout() {
           <div className={styles.statusIndicator}>
             <span
               className={`${styles.statusDot} ${
-                status?.status === 'healthy' ? styles.healthy : styles.warning
+                status?.status === 'healthy' && status?.llm?.available && status?.embeddings?.loaded
+                  ? styles.healthy
+                  : styles.warning
               }`}
             />
             <span>
-              {status?.status === 'healthy'
+              {!status
+                ? 'Connecting...'
+                : status.status === 'healthy' && status.llm?.available && status.embeddings?.loaded
                 ? 'All systems operational'
-                : 'Connecting...'}
+                : 'Systems degraded'}
             </span>
           </div>
           <div className={styles.statusIndicator}>
@@ -176,30 +204,6 @@ export function Layout() {
           )}
         </div>
       </header>
-
-      {/* AI Providers Offline Warning Banner */}
-      {status && (!status.llm?.available || !status.embeddings?.loaded) && (
-        <div className={styles.warningBanner}>
-          <div className={styles.warningContent}>
-            <svg className={styles.warningIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-              <line x1="12" y1="9" x2="12" y2="13" />
-              <line x1="12" y1="17" x2="12.01" y2="17" />
-            </svg>
-            <div className={styles.warningText}>
-              <div className={styles.warningTitle}>AI Providers Offline</div>
-              <div className={styles.warningMessage}>
-                {!status.llm?.available && !status.embeddings?.loaded
-                  ? 'LLM and embedding providers are not available.'
-                  : !status.llm?.available
-                  ? 'LLM provider is not available.'
-                  : 'Embedding provider is not available.'}
-                {status.jobs?.paused > 0 && ` ${status.jobs.paused} job${status.jobs.paused > 1 ? 's' : ''} paused.`}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
 
       {/* Sidebar */}
