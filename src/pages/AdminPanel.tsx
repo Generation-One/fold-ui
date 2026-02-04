@@ -195,18 +195,6 @@ export function AdminPanel() {
     }
   };
 
-  const handleDeleteGroup = async (groupId: string) => {
-    if (!confirm('Are you sure you want to delete this group?')) return;
-    try {
-      await api.deleteGroup(groupId);
-      showToast('Group deleted successfully', 'success');
-      setSelectedGroup(null);
-      mutate('admin/groups');
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed to delete group', 'error');
-    }
-  };
-
   const handleAddMember = async () => {
     if (!selectedGroup) return;
     try {

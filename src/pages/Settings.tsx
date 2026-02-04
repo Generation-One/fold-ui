@@ -110,7 +110,7 @@ export function Settings() {
       const newToken = await bootstrap(bootstrapToken, email, name);
       setBootstrapResult(`Success! Your API token: ${newToken}`);
       setTokenInput(newToken);
-    } catch (err) {
+    } catch {
       // Error is handled in the store
     } finally {
       setBootstrapping(false);

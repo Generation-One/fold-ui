@@ -19,17 +19,6 @@ export function ProjectDetail() {
     () => (projectId ? api.getProject(projectId) : Promise.reject())
   );
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
-
   if (isLoading) {
     return (
       <div className={styles.loading}>

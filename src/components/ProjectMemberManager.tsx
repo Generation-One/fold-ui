@@ -1,6 +1,6 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { api } from '../lib/api';
-import { useToast } from './Toast';
+import { useToast } from './ToastContext';
 import styles from './ProjectMemberManager.module.css';
 
 interface ProjectMember {
@@ -32,7 +32,7 @@ interface Props {
 
 type MemberType = 'user' | 'group';
 
-export function ProjectMemberManager({ projectId, projectName }: Props) {
+export function ProjectMemberManager({ projectId }: Props) {
   const { showToast } = useToast();
   const [members, setMembers] = useState<ProjectMember[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -44,13 +44,7 @@ export function ProjectMemberManager({ projectId, projectName }: Props) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
 
-  useEffect(() => {
-    loadMembers();
-    loadUsers();
-    loadGroups();
-  }, [projectId]);
-
-  const loadMembers = async () => {
+  const loadMembers = useCallback(async () => {
     setLoading(true);
     try {
       const response = await api.listProjectMembers(projectId);
@@ -62,9 +56,9 @@ export function ProjectMemberManager({ projectId, projectName }: Props) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [projectId, showToast]);
 
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     try {
       const response = await api.listUsers();
       const usersList = Array.isArray(response) ? response : response?.users || [];
@@ -73,9 +67,9 @@ export function ProjectMemberManager({ projectId, projectName }: Props) {
       const message = err instanceof Error ? err.message : 'Failed to load users';
       showToast(message, 'error');
     }
-  };
+  }, [showToast]);
 
-  const loadGroups = async () => {
+  const loadGroups = useCallback(async () => {
     try {
       const response = await api.listGroups();
       const groupsList = Array.isArray(response) ? response : response?.groups || [];
@@ -84,7 +78,13 @@ export function ProjectMemberManager({ projectId, projectName }: Props) {
       const message = err instanceof Error ? err.message : 'Failed to load groups';
       showToast(message, 'error');
     }
-  };
+  }, [showToast]);
+
+  useEffect(() => {
+    loadMembers();
+    loadUsers();
+    loadGroups();
+  }, [loadMembers, loadUsers, loadGroups]);
 
   const filteredOptions = useMemo(() => {
     const query = searchQuery.toLowerCase();

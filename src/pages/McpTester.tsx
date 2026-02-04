@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { JSONRPCClient } from 'json-rpc-2.0';
 import { useAuth } from '../stores/auth';
-import { api, API_BASE } from '../lib/api';
+import { API_BASE } from '../lib/api';
 import styles from './McpTester.module.css';
 
 // Derive MCP URL from API_BASE
@@ -331,7 +331,7 @@ curl -X POST ${DEFAULT_MCP_URL} \\
     let key = 0;
 
     // Regex to match JSON tokens
-    const regex = /("(?:\\.|[^"\\])*")\s*:|("(?:\\.|[^"\\])*")|(-?\d+\.?\d*(?:[eE][+-]?\d+)?)|(\btrue\b|\bfalse\b|\bnull\b)|([{}\[\],:])/g;
+    const regex = /("(?:\\.|[^"\\])*")\s*:|("(?:\\.|[^"\\])*")|(-?\d+\.?\d*(?:[eE][+-]?\d+)?)|(\btrue\b|\bfalse\b|\bnull\b)|([{}[\],:])/g;
     let lastIndex = 0;
     let match;
 
