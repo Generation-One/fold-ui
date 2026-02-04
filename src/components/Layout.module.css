@@ -222,6 +222,11 @@
   z-index: 50;
 }
 
+.offlineBanner {
+  background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+  border-bottom: 1px solid rgba(107, 114, 128, 0.3);
+}
+
 .warningContent {
   display: flex;
   align-items: center;
