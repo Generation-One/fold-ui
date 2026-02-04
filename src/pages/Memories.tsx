@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import useSWR, { mutate } from 'swr';
 import { api } from '../lib/api';
 import { useProject } from '../stores/project';
+import { useAuth } from '../stores/auth';
 import type { Memory, MemorySource, MemoryContext, Project } from '../lib/api';
 import { Modal, EmptyState, SourceBadge, Pagination } from '../components/ui';
 import styles from './Memories.module.css';
@@ -17,6 +18,8 @@ const ITEMS_PER_PAGE = 20;
 
 export function Memories() {
   const { selectedProjectId } = useProject();
+  const { user } = useAuth();
+  const isAdmin = user?.roles?.includes('admin') ?? false;
   const selectedProject = selectedProjectId;
   const [selectedSource, setSelectedSource] = useState<MemorySource | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -50,7 +53,7 @@ export function Memories() {
 
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (!selectedProject) return;
+    if (!selectedProject || !isAdmin) return;
 
     setCreating(true);
     setError(null);
@@ -98,7 +101,7 @@ export function Memories() {
   };
 
   const handleDelete = async (memory: Memory) => {
-    if (!selectedProject) return;
+    if (!selectedProject || !isAdmin) return;
     if (!confirm('Delete this memory? This cannot be undone.')) return;
 
     try {
@@ -138,8 +141,8 @@ export function Memories() {
         <button
           className={styles.createBtn}
           onClick={() => setIsCreateOpen(true)}
-          disabled={!selectedProject}
-          title={!selectedProject ? 'Select a project first' : undefined}
+          disabled={!selectedProject || !isAdmin}
+          title={!isAdmin ? 'Only administrators can create memories' : !selectedProject ? 'Select a project first' : undefined}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <path d="M12 5v14M5 12h14" />
@@ -307,11 +310,13 @@ export function Memories() {
                       </div>
                     )}
 
-                    <div className={styles.memoryActions}>
-                      <button className={styles.deleteBtn} onClick={() => handleDelete(memory)}>
-                        Delete
-                      </button>
-                    </div>
+                    {isAdmin && (
+                      <div className={styles.memoryActions}>
+                        <button className={styles.deleteBtn} onClick={() => handleDelete(memory)}>
+                          Delete
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </motion.div>
