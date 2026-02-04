@@ -323,12 +323,6 @@
   margin-bottom: 0.75rem;
 }
 
-.resultHeaderLeft {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
 .resultScore {
   display: flex;
   align-items: center;
@@ -370,6 +364,30 @@
   font-weight: 500;
   color: var(--text-primary);
   font-size: 0.9rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.resultMeta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.resultFooter {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+
+.resultDate {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  color: var(--text-tertiary);
 }
 
 .resultFilePath {
@@ -384,17 +402,6 @@
   font-family: 'JetBrains Mono', monospace;
   font-size: 0.7rem;
   color: var(--holo-cyan);
-}
-
-.resultMeta {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin-top: 0.75rem;
-  padding-top: 0.75rem;
-  border-top: 1px solid var(--border);
-  font-size: 0.75rem;
-  color: var(--text-tertiary);
 }
 
 .resultKeywords {
@@ -416,14 +423,31 @@
 .resultTags {
   display: flex;
   gap: 0.375rem;
+  flex-wrap: wrap;
 }
 
 .tag {
-  padding: 0.125rem 0.375rem;
+  padding: 0.125rem 0.5rem;
   background: var(--elevated);
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.6rem;
+  font-size: 0.65rem;
+  color: var(--text-secondary);
+  transition: all 0.15s var(--ease-out-expo);
+  cursor: pointer;
+}
+
+.tag:hover {
+  background: var(--holo-violet);
+  border-color: var(--holo-violet);
+  color: white;
+}
+
+.tagMore {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem;
+  color: var(--text-tertiary);
 }
 
 /* Loading State */

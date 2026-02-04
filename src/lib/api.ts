@@ -137,8 +137,11 @@ export interface Memory {
   repository_id?: string;
 
   // Content reference (actual content in fold/)
-  content_hash: string;
-  hash_prefix: string;
+  content_hash?: string;
+  hash_prefix?: string;
+
+  // Content (included in list response)
+  content?: string;
 
   // Source tracking
   source: MemorySource;
@@ -525,10 +528,17 @@ class FoldApiClient {
 
   async getMemories(
     projectId: string,
-    params: { source?: string; limit?: number; offset?: number } = {}
+    params: { source?: string; tag?: string; tags?: string[]; limit?: number; offset?: number } = {}
   ): Promise<{ memories: Memory[]; total: number }> {
     const query = new URLSearchParams();
     if (params.source) query.set('source', params.source);
+    // Support both single tag and multiple tags
+    if (params.tags && params.tags.length > 0) {
+      // Send as comma-separated for backend compatibility
+      query.set('tags', params.tags.join(','));
+    } else if (params.tag) {
+      query.set('tag', params.tag);
+    }
     if (params.limit) query.set('limit', String(params.limit));
     if (params.offset) query.set('offset', String(params.offset));
 
@@ -930,7 +940,7 @@ export const api = {
   // Memories
   listMemories: async (
     projectId: string,
-    params: { source?: string; limit?: number; offset?: number } = {}
+    params: { source?: string; tag?: string; limit?: number; offset?: number } = {}
   ) => {
     return apiClient.getMemories(projectId, params);
   },

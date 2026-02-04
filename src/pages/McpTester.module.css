@@ -249,6 +249,22 @@
   resize: vertical;
 }
 
+.paramWithHint {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.paramWithHint .paramInput {
+  width: 100%;
+}
+
+.paramHint {
+  font-size: 0.7rem;
+  color: var(--text-tertiary);
+  font-family: 'JetBrains Mono', monospace;
+}
+
 /* Execute Button */
 .executeBtn {
   display: flex;

@@ -184,7 +184,7 @@ curl -X POST ${DEFAULT_MCP_URL} \\
   const currentClient = mcpClients[selectedClient as keyof typeof mcpClients];
 
   const addLog = useCallback((type: 'send' | 'recv' | 'info' | 'error', message: string) => {
-    setLogs([{ type, message, time: new Date() }]);
+    setLogs((prev) => [...prev, { type, message, time: new Date() }]);
   }, []);
 
   const connect = useCallback(async () => {
@@ -237,9 +237,11 @@ curl -X POST ${DEFAULT_MCP_URL} \\
       addLog('info', 'Sent initialized notification');
 
       // Get tools list
-      const toolsResult = await client.request('tools/list', undefined) as { tools: McpTool[] };
-      setTools(toolsResult.tools || []);
-      addLog('info', `Loaded ${toolsResult.tools?.length || 0} tools`);
+      const toolsResult = await client.request('tools/list', undefined) as { tools?: McpTool[] };
+      addLog('info', `tools/list response: ${JSON.stringify(toolsResult)}`);
+      const toolsList = toolsResult?.tools || [];
+      setTools(toolsList);
+      addLog('info', `Loaded ${toolsList.length} tools`);
 
       setStatus('connected');
     } catch (err) {
@@ -293,9 +295,24 @@ curl -X POST ${DEFAULT_MCP_URL} \\
 
       for (const [name, value] of Object.entries(params)) {
         if (value === '') continue;
-        const propType = properties[name]?.type;
+        const prop = properties[name];
+        const propType = prop?.type;
 
-        if (propType === 'object' || propType === 'array') {
+        if (propType === 'array') {
+          // For arrays, support CSV input (e.g., "tag1, tag2, tag3")
+          // If it looks like JSON, parse it; otherwise split by comma
+          const trimmed = value.trim();
+          if (trimmed.startsWith('[')) {
+            try {
+              args[name] = JSON.parse(trimmed);
+            } catch {
+              args[name] = value;
+            }
+          } else {
+            // Split by comma and trim each value
+            args[name] = trimmed.split(',').map((v) => v.trim()).filter(Boolean);
+          }
+        } else if (propType === 'object') {
           try {
             args[name] = JSON.parse(value);
           } catch {
@@ -602,7 +619,9 @@ curl -X POST ${DEFAULT_MCP_URL} \\
                       This tool has no parameters.
                     </p>
                   ) : (
-                    Object.entries(selectedTool.input_schema.properties).map(([name, prop]) => (
+                    Object.entries(selectedTool.input_schema.properties)
+                      .filter(([name]) => name !== 'source') // Hide source parameter
+                      .map(([name, prop]) => (
                       <div key={name} className={styles.paramGroup}>
                         <label className={styles.paramLabel}>
                           <span className={styles.paramName}>{name}</span>
@@ -625,10 +644,21 @@ curl -X POST ${DEFAULT_MCP_URL} \\
                               <option key={opt} value={opt}>{opt}</option>
                             ))}
                           </select>
-                        ) : prop.type === 'object' || prop.type === 'array' ? (
+                        ) : prop.type === 'array' ? (
+                          <div className={styles.paramWithHint}>
+                            <input
+                              type="text"
+                              className={styles.paramInput}
+                              placeholder={prop.description || name}
+                              value={params[name] || ''}
+                              onChange={(e) => handleParamChange(name, e.target.value)}
+                            />
+                            <span className={styles.paramHint}>e.g. value1, value2</span>
+                          </div>
+                        ) : prop.type === 'object' ? (
                           <textarea
                             className={`${styles.paramInput} ${styles.paramTextarea}`}
-                            placeholder={prop.description || name}
+                            placeholder={prop.description || `${name} (JSON)`}
                             value={params[name] || ''}
                             onChange={(e) => handleParamChange(name, e.target.value)}
                           />
