@@ -168,6 +168,14 @@ export function Memories() {
           <h1 className={styles.pageTitle}>Memories</h1>
           <p className={styles.pageSubtitle}>Browse and manage project memories</p>
         </div>
+        {selectedProject && (
+          <button className={styles.addBtn} onClick={() => setIsCreateOpen(true)}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            Add Memory
+          </button>
+        )}
       </div>
 
       {/* Filters */}

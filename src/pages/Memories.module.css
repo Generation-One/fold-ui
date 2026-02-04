@@ -23,6 +23,25 @@
   color: var(--text-secondary);
 }
 
+.addBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1rem;
+  background: var(--gradient-holo);
+  border-radius: var(--radius-md);
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: white;
+  transition: all 0.2s var(--ease-out-expo);
+  flex-shrink: 0;
+}
+
+.addBtn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
 .createBtn {
   display: flex;
   align-items: center;
