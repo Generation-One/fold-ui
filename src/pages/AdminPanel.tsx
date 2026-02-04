@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import useSWR, { mutate } from 'swr';
 import { api } from '../lib/api';
+import type { Project } from '../lib/api';
 import { useToast } from '../components/ToastContext';
 import { useAuth } from '../stores/auth';
 import { Modal } from '../components/ui';
+import { MemoryManager } from '../components/MemoryManager';
 import styles from './AdminPanel.module.css';
 
 // Types
@@ -34,8 +36,9 @@ interface GroupMember {
 export function AdminPanel() {
   const { user } = useAuth();
   const { showToast } = useToast();
-  const [mainTab, setMainTab] = useState<'users' | 'groups'>('users');
+  const [mainTab, setMainTab] = useState<'users' | 'groups' | 'memories'>('users');
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
+  const [selectedMemoryProjectId, setSelectedMemoryProjectId] = useState<string | null>(null);
 
   // Users tab state
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
@@ -79,6 +82,11 @@ export function AdminPanel() {
   const { data: groupMembers } = useSWR<GroupMember[]>(
     selectedGroup ? `admin/group/${selectedGroup}/members` : null,
     () => selectedGroup ? api.listGroupMembers(selectedGroup) : Promise.resolve([])
+  );
+
+  const { data: projects } = useSWR<Project[]>(
+    mainTab === 'memories' ? 'projects' : null,
+    () => api.listProjects()
   );
 
   // Check if user is admin
@@ -464,6 +472,12 @@ export function AdminPanel() {
         >
           Groups
         </button>
+        <button
+          className={`${styles.tab} ${mainTab === 'memories' ? styles.active : ''}`}
+          onClick={() => setMainTab('memories')}
+        >
+          Memories
+        </button>
       </div>
 
       {/* Users Tab */}
@@ -628,6 +642,48 @@ export function AdminPanel() {
                 ) : (
                   <div className={styles.empty}>No members in this group</div>
                 )}
+              </div>
+            )}
+          </div>
+        </motion.div>
+      )}
+
+      {/* Memories Tab */}
+      {mainTab === 'memories' && (
+        <motion.div
+          className={styles.content}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+        >
+          <div className={styles.card}>
+            <div className={styles.cardHeader}>
+              <h2>Memories</h2>
+              <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                <select
+                  value={selectedMemoryProjectId || ''}
+                  onChange={(e) => setSelectedMemoryProjectId(e.target.value || null)}
+                  style={{
+                    padding: '0.5rem',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--border)',
+                    backgroundColor: 'var(--elevated)',
+                    color: 'var(--text-primary)',
+                  }}
+                >
+                  <option value="">Select a project...</option>
+                  {projects?.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name || p.id}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            {selectedMemoryProjectId ? (
+              <MemoryManager projectId={selectedMemoryProjectId} />
+            ) : (
+              <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+                Select a project to manage its memories
               </div>
             )}
           </div>

@@ -592,6 +592,19 @@ class FoldApiClient {
     });
   }
 
+  async updateMemory(projectId: string, memoryId: string, data: {
+    title?: string;
+    content?: string;
+    author?: string;
+    tags?: string[];
+    file_path?: string;
+  }): Promise<Memory> {
+    return this._fetch<Memory>(`/projects/${projectId}/memories/${memoryId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
   async getMe(): Promise<{
     id: string;
     email: string;
@@ -924,6 +937,13 @@ export const api = {
     apiClient.createMemory(projectId, data),
   deleteMemory: (projectId: string, memoryId: string) =>
     apiClient.deleteMemory(projectId, memoryId),
+  updateMemory: (projectId: string, memoryId: string, data: {
+    title?: string;
+    content?: string;
+    author?: string;
+    tags?: string[];
+    file_path?: string;
+  }) => apiClient.updateMemory(projectId, memoryId, data),
   getMemoryContext: (projectId: string, memoryId: string, depth?: number) =>
     apiClient.getMemoryContext(projectId, memoryId, depth),
 

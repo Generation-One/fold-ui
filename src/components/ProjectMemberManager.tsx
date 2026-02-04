@@ -27,7 +27,6 @@ interface Group {
 
 interface Props {
   projectId: string;
-  projectName: string;
 }
 
 type MemberType = 'user' | 'group';
