@@ -1,8 +1,11 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { JSONRPCClient } from 'json-rpc-2.0';
+import useSWR from 'swr';
 import { useAuth } from '../stores/auth';
-import { API_BASE } from '../lib/api';
+import { useProject } from '../stores/project';
+import { api, API_BASE } from '../lib/api';
+import type { Project } from '../lib/api';
 import styles from './McpTester.module.css';
 
 // Derive MCP URL from API_BASE
@@ -30,6 +33,7 @@ type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
 
 export function McpTester() {
   const { token } = useAuth();
+  const { selectedProjectId } = useProject();
   const [mcpUrl, setMcpUrl] = useState(
     () => localStorage.getItem('mcp_url') || DEFAULT_MCP_URL
   );
@@ -47,6 +51,10 @@ export function McpTester() {
   // MCP Setup state
   const [selectedClient, setSelectedClient] = useState<string>('claude-code');
   const [copiedCommand, setCopiedCommand] = useState<string | null>(null);
+
+  // Fetch projects to get current project slug
+  const { data: projects } = useSWR<Project[]>('projects', api.listProjects);
+  const currentProject = projects?.find((p) => p.id === selectedProjectId);
 
   const clientRef = useRef<JSONRPCClient | null>(null);
 
@@ -251,7 +259,20 @@ curl -X POST ${DEFAULT_MCP_URL} \\
 
   const handleToolSelect = (tool: McpTool) => {
     setSelectedTool(tool);
-    setParams({});
+
+    // Pre-fill project slug if applicable
+    const newParams: Record<string, string> = {};
+    if (currentProject?.slug) {
+      const properties = tool.input_schema?.properties || {};
+      // Look for parameters that might need the project slug
+      for (const [name] of Object.entries(properties)) {
+        if (name === 'project' || name === 'project_id' || name === 'project_slug' || name === 'slug') {
+          newParams[name] = currentProject.slug;
+        }
+      }
+    }
+
+    setParams(newParams);
     setResponse(null);
   };
 
