@@ -132,12 +132,21 @@ export function Layout() {
     <div className={styles.app}>
       {/* System Offline Banner */}
       {isSystemOffline && (
-        <div className={`${styles.warningBanner} ${styles.offlineBanner}`}>
+        <motion.div
+          className={`${styles.warningBanner} ${styles.offlineBanner}`}
+          initial={{ opacity: 0, y: -40 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -40 }}
+          transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+        >
           <div className={styles.warningContent}>
-            <svg className={styles.warningIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10" />
-              <path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01" />
-            </svg>
+            <div className={styles.offlineIconWrapper}>
+              <svg className={styles.offlineIcon} viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                <line x1="12" y1="9" x2="12" y2="13" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+            </div>
             <div className={styles.warningText}>
               <span className={styles.warningTitle}>System Offline</span>
               <span className={styles.warningMessage}>
@@ -151,7 +160,7 @@ export function Layout() {
               </span>
             </div>
           </div>
-        </div>
+        </motion.div>
       )}
 
       {/* AI Providers Offline Warning Banner */}
