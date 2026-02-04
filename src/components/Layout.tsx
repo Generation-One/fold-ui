@@ -229,22 +229,29 @@ export function Layout() {
           return (
             <div key={section.section} className={styles.navSection}>
               <div className={styles.navLabel}>{section.section}</div>
-              {section.items.map((item) => (
-                <NavLink
-                  key={item.path}
-                  to={item.path}
-                  className={({ isActive }) =>
-                    `${styles.navItem} ${isActive ? styles.active : ''}`
-                  }
-                  end={item.path === '/'}
-                >
-                  <span className={styles.navIcon}>{icons[item.icon]}</span>
-                  {item.label}
-                  {item.path === '/jobs' && jobCount > 0 && (
-                    <span className={styles.navBadge}>{jobCount}</span>
-                  )}
-                </NavLink>
-              ))}
+              {section.items.map((item) => {
+                // Skip Search and Memories if no project is selected
+                if ((item.path === '/search' || item.path === '/memories') && !selectedProjectId) {
+                  return null;
+                }
+
+                return (
+                  <NavLink
+                    key={item.path}
+                    to={item.path}
+                    className={({ isActive }) =>
+                      `${styles.navItem} ${isActive ? styles.active : ''}`
+                    }
+                    end={item.path === '/'}
+                  >
+                    <span className={styles.navIcon}>{icons[item.icon]}</span>
+                    {item.label}
+                    {item.path === '/jobs' && jobCount > 0 && (
+                      <span className={styles.navBadge}>{jobCount}</span>
+                    )}
+                  </NavLink>
+                );
+              })}
             </div>
           );
         })}

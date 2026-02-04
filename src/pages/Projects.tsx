@@ -3,12 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import useSWR, { mutate } from 'swr';
 import { api } from '../lib/api';
+import { useProject } from '../stores/project';
 import type { Project } from '../lib/api';
 import { Modal, EmptyState } from '../components/ui';
 import styles from './Projects.module.css';
 
 export function Projects() {
   const navigate = useNavigate();
+  const { selectProject } = useProject();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -104,7 +106,10 @@ export function Projects() {
             <motion.div
               key={project.id}
               className={styles.projectCard}
-              onClick={() => navigate(`/projects/${project.id}`)}
+              onClick={() => {
+                selectProject(project.id);
+                navigate(`/projects/${project.id}`);
+              }}
               style={{ cursor: 'pointer' }}
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -118,7 +123,10 @@ export function Projects() {
                 <div className={styles.projectActions}>
                   <button
                     className={`${styles.actionBtn} ${styles.danger}`}
-                    onClick={() => handleDelete(project)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDelete(project);
+                    }}
                     title="Delete project"
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
