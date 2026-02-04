@@ -151,11 +151,14 @@ export function Settings() {
         const config: Record<string, any> = {};
         const model = formData.get('model') as string;
         if (model) config.model = model;
+        const endpoint = formData.get('endpoint') as string;
+        if (endpoint) config.endpoint = endpoint;
 
+        const providerName = formData.get('name') as 'gemini' | 'openai' | 'ollama';
         const data: EmbeddingProviderCreateRequest = {
-          name: formData.get('name') as 'gemini' | 'openai' | 'ollama',
+          name: providerName,
           auth_type: 'api_key',
-          api_key: formData.get('api_key') as string,
+          api_key: providerName !== 'ollama' ? formData.get('api_key') as string : undefined,
           priority: formData.get('priority') ? Number(formData.get('priority')) : undefined,
           search_priority: formData.get('search_priority') ? Number(formData.get('search_priority')) : undefined,
           enabled: formData.get('enabled') === 'on',
@@ -728,6 +731,7 @@ export function Settings() {
           setEditingProvider(null);
         }}
         title={editingProvider ? 'Edit Provider' : 'Add Provider'}
+        wide
         footer={
           <div className={styles.actions}>
             <button
@@ -748,65 +752,141 @@ export function Settings() {
         }
       >
         <form id="provider-form" className={styles.tabContent} onSubmit={handleCreateProvider}>
-
-          <div className={styles.inputGroup}>
-            <label className={styles.label}>Provider *</label>
-            <select
-              name="name"
-              className={styles.input}
-              value={selectedProviderName}
-              onChange={(e) => {
-                const name = e.target.value;
-                setSelectedProviderName(name);
-                // Reset to api_key when switching away from Anthropic
-                if (name !== 'anthropic') {
-                  setSelectedAuthType('api_key');
-                }
-                // Fetch Claude Code status when selected
-                if (name === 'claudecode') {
-                  api.getClaudeCodeStatus().then(setClaudeCodeStatus).catch(() => setClaudeCodeStatus(null));
-                }
-              }}
-              required
-            >
-              {providerTab === 'llm' ? (
-                <>
-                  <option value="gemini">Gemini</option>
-                  <option value="openai">OpenAI</option>
-                  <option value="anthropic">Anthropic (Claude API)</option>
-                  <option value="claudecode">Claude Code (Max/Pro subscription)</option>
-                  <option value="openrouter">OpenRouter</option>
-                </>
-              ) : (
-                <>
-                  <option value="gemini">Gemini</option>
-                  <option value="openai">OpenAI</option>
-                  <option value="ollama">Ollama</option>
-                </>
-              )}
-            </select>
-          </div>
-
-          {providerTab === 'llm' && selectedProviderName === 'anthropic' && (
-            <div className={styles.inputGroup}>
-              <label className={styles.label}>Authentication *</label>
-              <select
-                name="auth_type"
-                className={styles.input}
-                value={selectedAuthType}
-                onChange={(e) => setSelectedAuthType(e.target.value as 'api_key' | 'oauth')}
-                required
-              >
-                <option value="api_key">API Key</option>
-                <option value="oauth">OAuth</option>
-              </select>
-            </div>
-          )}
-
           {/* Hidden input for auth_type when not Anthropic */}
           {providerTab === 'llm' && selectedProviderName !== 'anthropic' && selectedProviderName !== 'claudecode' && (
             <input type="hidden" name="auth_type" value="api_key" />
           )}
+
+          {/* Top row: Provider (left) + API Key/URL (right) */}
+          <div className={styles.formColumnsTop}>
+            <div className={styles.inputGroup}>
+              <label className={styles.label}>Provider *</label>
+              <select
+                name="name"
+                className={styles.input}
+                value={selectedProviderName}
+                onChange={(e) => {
+                  const name = e.target.value;
+                  setSelectedProviderName(name);
+                  // Reset to api_key when switching away from Anthropic
+                  if (name !== 'anthropic') {
+                    setSelectedAuthType('api_key');
+                  }
+                  // Fetch Claude Code status when selected
+                  if (name === 'claudecode') {
+                    api.getClaudeCodeStatus().then(setClaudeCodeStatus).catch(() => setClaudeCodeStatus(null));
+                  }
+                }}
+                required
+              >
+                {providerTab === 'llm' ? (
+                  <>
+                    <option value="gemini">Gemini</option>
+                    <option value="openai">OpenAI</option>
+                    <option value="anthropic">Anthropic (Claude API)</option>
+                    <option value="claudecode">Claude Code (Max/Pro subscription)</option>
+                    <option value="openrouter">OpenRouter</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="gemini">Gemini</option>
+                    <option value="openai">OpenAI</option>
+                    <option value="ollama">Ollama</option>
+                  </>
+                )}
+              </select>
+              {providerTab === 'llm' && selectedProviderName === 'anthropic' && (
+                <div style={{ marginTop: '0.75rem' }}>
+                  <label className={styles.label}>Authentication *</label>
+                  <select
+                    name="auth_type"
+                    className={styles.input}
+                    value={selectedAuthType}
+                    onChange={(e) => setSelectedAuthType(e.target.value as 'api_key' | 'oauth')}
+                    required
+                  >
+                    <option value="api_key">API Key</option>
+                    <option value="oauth">OAuth</option>
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {/* API Key / URL on the right - only for non-Claude Code */}
+            {selectedProviderName !== 'claudecode' && (
+              <div className={styles.inputGroup}>
+                {/* API Key for non-Ollama providers */}
+                {(selectedProviderName !== 'anthropic' || selectedAuthType === 'api_key') && selectedProviderName !== 'ollama' && (
+                  <>
+                    <label className={styles.label}>
+                      API Key {!editingProvider && '*'}
+                    </label>
+                    <input
+                      type="password"
+                      name="api_key"
+                      className={styles.input}
+                      placeholder={editingProvider ? '(unchanged)' : 'sk-...'}
+                      required={!editingProvider}
+                    />
+                    {editingProvider && (
+                      <p className={styles.hint}>Leave blank to keep existing key</p>
+                    )}
+                    {!editingProvider && selectedProviderName === 'anthropic' && (
+                      <p className={styles.hint}>
+                        Get your API key from{' '}
+                        <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer" className={styles.linkBtn}>
+                          Anthropic Console
+                        </a>
+                      </p>
+                    )}
+                    {!editingProvider && selectedProviderName === 'gemini' && (
+                      <p className={styles.hint}>
+                        Get your API key from{' '}
+                        <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className={styles.linkBtn}>
+                          Google AI Studio
+                        </a>
+                      </p>
+                    )}
+                    {!editingProvider && selectedProviderName === 'openai' && (
+                      <p className={styles.hint}>
+                        Get your API key from{' '}
+                        <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className={styles.linkBtn}>
+                          OpenAI Platform
+                        </a>
+                      </p>
+                    )}
+                  </>
+                )}
+
+                {/* Custom URL for Ollama */}
+                {selectedProviderName === 'ollama' && (
+                  <>
+                    <label className={styles.label}>Custom URL</label>
+                    <input
+                      type="text"
+                      name="endpoint"
+                      className={styles.input}
+                      placeholder="http://localhost:11434"
+                      defaultValue={editingProvider?.config?.endpoint as string || ''}
+                    />
+                    <p className={styles.hint}>
+                      Ollama runs locally. Leave blank to use default{' '}
+                      <code>http://localhost:11434</code>
+                    </p>
+                  </>
+                )}
+
+                {/* OAuth link for Anthropic */}
+                {selectedProviderName === 'anthropic' && selectedAuthType === 'oauth' && (
+                  <p className={styles.description}>
+                    <button type="button" onClick={handleOAuthInit} className={styles.linkBtn}>
+                      Click here to authorize with Anthropic
+                    </button>
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
 
           {/* Claude Code special form */}
           {selectedProviderName === 'claudecode' && !editingProvider && (
@@ -903,145 +983,134 @@ export function Settings() {
             </div>
           )}
 
-          {/* API Key for non-Claude Code providers */}
-          {selectedProviderName !== 'claudecode' && (selectedProviderName !== 'anthropic' || selectedAuthType === 'api_key') && (
-            <div className={styles.inputGroup}>
-              <label className={styles.label}>
-                {selectedProviderName === 'ollama' ? 'Custom URL' : 'API Key'} {!editingProvider && selectedProviderName !== 'ollama' && '*'}
-              </label>
-              <input
-                type={selectedProviderName === 'ollama' ? 'text' : 'password'}
-                name="api_key"
-                className={styles.input}
-                placeholder={editingProvider ? '(unchanged)' : selectedProviderName === 'ollama' ? 'http://localhost:11434' : 'sk-...'}
-                required={!editingProvider && selectedProviderName !== 'ollama'}
-              />
-              {editingProvider && (
-                <p className={styles.hint}>Leave blank to keep existing key</p>
-              )}
-              {!editingProvider && selectedProviderName === 'anthropic' && (
-                <p className={styles.hint}>
-                  Get your API key from{' '}
-                  <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener noreferrer" className={styles.linkBtn}>
-                    Anthropic Console
-                  </a>
-                  {' '}(Claude Code credentials won't work here)
-                </p>
-              )}
-              {!editingProvider && selectedProviderName === 'gemini' && (
-                <p className={styles.hint}>
-                  Get your API key from{' '}
-                  <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" className={styles.linkBtn}>
-                    Google AI Studio
-                  </a>
-                </p>
-              )}
-              {!editingProvider && selectedProviderName === 'openai' && (
-                <p className={styles.hint}>
-                  Get your API key from{' '}
-                  <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener noreferrer" className={styles.linkBtn}>
-                    OpenAI Platform
-                  </a>
-                </p>
-              )}
-              {!editingProvider && selectedProviderName === 'ollama' && (
-                <p className={styles.hint}>
-                  Ollama runs locally. Leave blank to use default{' '}
-                  <code>http://localhost:11434</code> or enter a custom URL
-                </p>
-              )}
-            </div>
-          )}
-
-          {selectedProviderName === 'anthropic' && selectedAuthType === 'oauth' && (
-            <div className={styles.inputGroup}>
-              <p className={styles.description}>
-                <button type="button" onClick={handleOAuthInit} className={styles.linkBtn}>
-                  Click here to authorize with Anthropic
-                </button>
-              </p>
-            </div>
-          )}
-
           {/* Hide these fields for Claude Code since it uses a different import flow */}
           {selectedProviderName !== 'claudecode' && (
             <>
-              <div className={styles.inputGroup}>
-                <label className={styles.label}>Model (optional)</label>
-                <input
-                  type="text"
-                  name="model"
-                  className={styles.input}
-                  placeholder="gpt-4, claude-3-opus, etc."
-                  defaultValue={editingProvider?.config?.model as string | undefined}
-                />
-                <p className={styles.hint}>
-                  Find model codes: {' '}
-                  {selectedProviderName === 'gemini' && (
-                    <a href="https://ai.google.dev/gemini-api/docs/models/gemini" target="_blank" rel="noopener noreferrer" className={styles.linkBtn}>
-                      Gemini models
-                    </a>
-                  )}
-                  {selectedProviderName === 'openai' && (
-                    <a href="https://platform.openai.com/docs/models" target="_blank" rel="noopener noreferrer" className={styles.linkBtn}>
-                      OpenAI models
-                    </a>
-                  )}
-                  {selectedProviderName === 'anthropic' && (
-                    <a href="https://docs.anthropic.com/en/docs/about-claude/models" target="_blank" rel="noopener noreferrer" className={styles.linkBtn}>
-                      Claude models
-                    </a>
-                  )}
-                  {selectedProviderName === 'openrouter' && (
-                    <a href="https://openrouter.ai/models" target="_blank" rel="noopener noreferrer" className={styles.linkBtn}>
-                      OpenRouter models
-                    </a>
-                  )}
-                  {selectedProviderName === 'ollama' && (
-                    <a href="https://ollama.ai/library" target="_blank" rel="noopener noreferrer" className={styles.linkBtn}>
-                      Ollama model library
-                    </a>
-                  )}
-                </p>
-              </div>
+              <div className={styles.formColumns}>
+                {/* Left column - Model Configuration */}
+                <div className={styles.formColumn}>
+                  <div className={styles.formSection}>
+                    <h4 className={styles.formSectionTitle}>Model Configuration</h4>
+                    <div className={styles.inputGroup}>
+                      <label className={styles.label}>Model (optional)</label>
+                      <input
+                        type="text"
+                        name="model"
+                        className={styles.input}
+                        placeholder="gpt-4, claude-3-opus, etc."
+                        defaultValue={editingProvider?.config?.model as string | undefined}
+                      />
+                      <p className={styles.hint}>
+                        Find model codes: {' '}
+                        {selectedProviderName === 'gemini' && (
+                          <a href="https://ai.google.dev/gemini-api/docs/models/gemini" target="_blank" rel="noopener noreferrer" className={styles.linkBtn}>
+                            Gemini models
+                          </a>
+                        )}
+                        {selectedProviderName === 'openai' && (
+                          <a href="https://platform.openai.com/docs/models" target="_blank" rel="noopener noreferrer" className={styles.linkBtn}>
+                            OpenAI models
+                          </a>
+                        )}
+                        {selectedProviderName === 'anthropic' && (
+                          <a href="https://docs.anthropic.com/en/docs/about-claude/models" target="_blank" rel="noopener noreferrer" className={styles.linkBtn}>
+                            Claude models
+                          </a>
+                        )}
+                        {selectedProviderName === 'openrouter' && (
+                          <a href="https://openrouter.ai/models" target="_blank" rel="noopener noreferrer" className={styles.linkBtn}>
+                            OpenRouter models
+                          </a>
+                        )}
+                        {selectedProviderName === 'ollama' && (
+                          <a href="https://ollama.ai/library" target="_blank" rel="noopener noreferrer" className={styles.linkBtn}>
+                            Ollama model library
+                          </a>
+                        )}
+                      </p>
+                    </div>
 
-              <div className={styles.inputGroup}>
-                <label className={styles.label}>{providerTab === 'embedding' ? 'Priority (Indexing)' : 'Priority'}</label>
-                <input
-                  type="number"
-                  name="priority"
-                  className={styles.input}
-                  placeholder="1"
-                  defaultValue={editingProvider?.priority || 1}
-                  min="1"
-                />
-                <p className={styles.description}>Lower numbers = higher priority</p>
-              </div>
-
-              {providerTab === 'embedding' && (
-                <div className={styles.inputGroup}>
-                  <label className={styles.label}>Priority (Search)</label>
-                  <input
-                    type="number"
-                    name="search_priority"
-                    className={styles.input}
-                    placeholder="Same as indexing"
-                    defaultValue={(editingProvider as EmbeddingProvider | null)?.search_priority || ''}
-                    min="1"
-                  />
-                  <p className={styles.description}>Optional. If empty, uses indexing priority</p>
+                    {/* Ollama model suggestions */}
+                    {selectedProviderName === 'ollama' && providerTab === 'embedding' && (
+                      <div className={styles.modelSuggestions}>
+                        <p className={styles.description} style={{ marginBottom: '0.5rem' }}>
+                          <strong>Recommended models (Feb 2026):</strong>
+                        </p>
+                        <ul className={styles.modelList}>
+                          <li>
+                            <button type="button" className={styles.modelBtn} onClick={() => {
+                              const modelInput = document.querySelector('input[name="model"]') as HTMLInputElement;
+                              if (modelInput) modelInput.value = 'nomic-embed-text';
+                            }}>nomic-embed-text</button>
+                            <span> - Best all-round, 768d</span>
+                          </li>
+                          <li>
+                            <button type="button" className={styles.modelBtn} onClick={() => {
+                              const modelInput = document.querySelector('input[name="model"]') as HTMLInputElement;
+                              if (modelInput) modelInput.value = 'mxbai-embed-large';
+                            }}>mxbai-embed-large</button>
+                            <span> - High quality</span>
+                          </li>
+                          <li>
+                            <button type="button" className={styles.modelBtn} onClick={() => {
+                              const modelInput = document.querySelector('input[name="model"]') as HTMLInputElement;
+                              if (modelInput) modelInput.value = 'bge-base-en-v1.5';
+                            }}>bge-base-en-v1.5</button>
+                            <span> - Retrieval optimised</span>
+                          </li>
+                        </ul>
+                        <p className={styles.hint}>
+                          Run <code>ollama pull nomic-embed-text</code> to download
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              )}
 
-              <div className={styles.inputGroup}>
-                <label className={styles.checkboxLabel}>
-                  <input
-                    type="checkbox"
-                    name="enabled"
-                    defaultChecked={editingProvider?.enabled ?? true}
-                  />
-                  <span>Enabled</span>
-                </label>
+                {/* Right column - Priority & Status */}
+                <div className={styles.formColumn}>
+                  <div className={styles.formSection}>
+                    <h4 className={styles.formSectionTitle}>Priority & Status</h4>
+                    <div className={styles.inputGroup}>
+                      <label className={styles.label}>{providerTab === 'embedding' ? 'Priority (Indexing)' : 'Priority'}</label>
+                      <input
+                        type="number"
+                        name="priority"
+                        className={styles.input}
+                        placeholder="1"
+                        defaultValue={editingProvider?.priority || 1}
+                        min="1"
+                      />
+                      <p className={styles.description}>Lower numbers = higher priority</p>
+                    </div>
+
+                    {providerTab === 'embedding' && (
+                      <div className={styles.inputGroup}>
+                        <label className={styles.label}>Priority (Search)</label>
+                        <input
+                          type="number"
+                          name="search_priority"
+                          className={styles.input}
+                          placeholder="Same as indexing"
+                          defaultValue={(editingProvider as EmbeddingProvider | null)?.search_priority || ''}
+                          min="1"
+                        />
+                        <p className={styles.description}>Optional. If empty, uses indexing priority</p>
+                      </div>
+                    )}
+
+                    <div className={styles.inputGroup}>
+                      <label className={styles.checkboxLabel}>
+                        <input
+                          type="checkbox"
+                          name="enabled"
+                          defaultChecked={editingProvider?.enabled ?? true}
+                        />
+                        <span>Enabled</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
               </div>
             </>
           )}
