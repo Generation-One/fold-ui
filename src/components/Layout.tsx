@@ -109,11 +109,14 @@ export function Layout() {
   const { isAuthenticated, clearAuth, user } = useAuth();
   const { selectedProjectId, selectProject } = useProject();
 
-  const { data: status } = useSWR(
+  const { data: status, error: statusError } = useSWR(
     'status',
     () => api.getStatus(),
     { refreshInterval: 5000 }
   );
+
+  // Determine if system is offline or unreachable
+  const isSystemOffline = !status || status.status !== 'healthy' || statusError;
 
   const { data: jobs } = useSWR(
     'jobs',
@@ -128,7 +131,7 @@ export function Layout() {
   return (
     <div className={styles.app}>
       {/* System Offline Banner */}
-      {status && status.status !== 'healthy' && (
+      {isSystemOffline && (
         <div className={`${styles.warningBanner} ${styles.offlineBanner}`}>
           <div className={styles.warningContent}>
             <svg className={styles.warningIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -138,7 +141,11 @@ export function Layout() {
             <div className={styles.warningText}>
               <span className={styles.warningTitle}>System Offline</span>
               <span className={styles.warningMessage}>
-                — {status.status === 'unhealthy'
+                — {statusError
+                  ? statusError instanceof Error && statusError.message.includes('401')
+                    ? 'Authentication failed - check your API token'
+                    : 'Cannot reach the system - check your connection'
+                  : status?.status === 'unhealthy'
                   ? 'The system is currently unavailable'
                   : 'The system is operating in degraded mode'}
               </span>
@@ -148,7 +155,7 @@ export function Layout() {
       )}
 
       {/* AI Providers Offline Warning Banner */}
-      {status && (!status.llm?.available || !status.embeddings?.loaded) && status.status === 'healthy' && (
+      {status && !statusError && status.status === 'healthy' && (!status.llm?.available || !status.embeddings?.loaded) && (
         <div className={styles.warningBanner}>
           <div className={styles.warningContent}>
             <svg className={styles.warningIcon} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
