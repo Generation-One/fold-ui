@@ -206,8 +206,9 @@
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);
   z-index: 100;
-  max-height: 280px;
-  overflow-y: auto;
+  max-height: 400px;
+  display: flex;
+  flex-direction: column;
 }
 
 .projectSelectorEmpty {
@@ -246,6 +247,31 @@
   font-size: 0.7rem;
   color: var(--text-tertiary);
   margin-left: auto;
+}
+
+.projectSelectorScroll {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.projectSelectorViewAll {
+  flex-shrink: 0;
+  display: block;
+  padding: 0.75rem 1rem;
+  font-size: 0.85rem;
+  color: var(--holo-cyan);
+  background: none;
+  border: none;
+  border-top: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 0.15s var(--ease-out-expo);
+  text-align: left;
+  width: 100%;
+}
+
+.projectSelectorViewAll:hover {
+  background: var(--elevated);
 }
 
 /* Legacy Selector Styles (kept for compatibility) */

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import useSWR from 'swr';
 import { api } from '../../lib/api';
 import type { Project } from '../../lib/api';
@@ -13,6 +14,7 @@ interface ProjectSelectorProps {
 export function ProjectSelector({ value, onChange, placeholder = 'Select project...' }: ProjectSelectorProps) {
   const [isOpen, setIsOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
 
   const { data: projects } = useSWR<Project[]>('projects', api.listProjects);
 
@@ -58,32 +60,43 @@ export function ProjectSelector({ value, onChange, placeholder = 'Select project
             <div className={styles.projectSelectorEmpty}>No projects found</div>
           ) : (
             <>
-              {value && (
-                <button
-                  className={styles.projectSelectorOption}
-                  onClick={() => {
-                    onChange(null);
-                    setIsOpen(false);
-                  }}
-                >
-                  <span className={styles.projectSelectorPlaceholder}>All projects</span>
-                </button>
-              )}
-              {projects?.map((project) => (
-                <button
-                  key={project.id}
-                  className={`${styles.projectSelectorOption} ${project.id === value ? styles.selected : ''}`}
-                  onClick={() => {
-                    onChange(project.id);
-                    setIsOpen(false);
-                  }}
-                >
-                  <span>{project.name}</span>
-                  {project.slug && (
-                    <span className={styles.projectSelectorSlug}>{project.slug}</span>
-                  )}
-                </button>
-              ))}
+              <div className={styles.projectSelectorScroll}>
+                {value && (
+                  <button
+                    className={styles.projectSelectorOption}
+                    onClick={() => {
+                      onChange(null);
+                      setIsOpen(false);
+                    }}
+                  >
+                    <span className={styles.projectSelectorPlaceholder}>All projects</span>
+                  </button>
+                )}
+                {projects?.map((project) => (
+                  <button
+                    key={project.id}
+                    className={`${styles.projectSelectorOption} ${project.id === value ? styles.selected : ''}`}
+                    onClick={() => {
+                      onChange(project.id);
+                      setIsOpen(false);
+                    }}
+                  >
+                    <span>{project.name}</span>
+                    {project.slug && (
+                      <span className={styles.projectSelectorSlug}>{project.slug}</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+              <button
+                className={styles.projectSelectorViewAll}
+                onClick={() => {
+                  navigate('/projects');
+                  setIsOpen(false);
+                }}
+              >
+                View all projects
+              </button>
             </>
           )}
         </div>
