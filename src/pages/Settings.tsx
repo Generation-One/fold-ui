@@ -157,6 +157,7 @@ export function Settings() {
           auth_type: 'api_key',
           api_key: formData.get('api_key') as string,
           priority: formData.get('priority') ? Number(formData.get('priority')) : undefined,
+          search_priority: formData.get('search_priority') ? Number(formData.get('search_priority')) : undefined,
           enabled: formData.get('enabled') === 'on',
           config: Object.keys(config).length > 0 ? config : undefined,
         };
@@ -677,7 +678,8 @@ export function Settings() {
                                 <span className={styles.providerAuth}>API Key Set</span>
                               )}
                               {model && <span className={styles.providerModel}>{model}</span>}
-                              <span className={styles.providerPriority}>Priority: {provider.priority}</span>
+                              <span className={styles.providerPriority}>Index: {provider.priority}</span>
+                              <span className={styles.providerPriority}>Search: {provider.search_priority ?? provider.priority}</span>
                             </div>
                           </div>
                           <div className={styles.providerActions}>
@@ -1004,7 +1006,7 @@ export function Settings() {
               </div>
 
               <div className={styles.inputGroup}>
-                <label className={styles.label}>Priority</label>
+                <label className={styles.label}>{providerTab === 'embedding' ? 'Priority (Indexing)' : 'Priority'}</label>
                 <input
                   type="number"
                   name="priority"
@@ -1015,6 +1017,21 @@ export function Settings() {
                 />
                 <p className={styles.description}>Lower numbers = higher priority</p>
               </div>
+
+              {providerTab === 'embedding' && (
+                <div className={styles.inputGroup}>
+                  <label className={styles.label}>Priority (Search)</label>
+                  <input
+                    type="number"
+                    name="search_priority"
+                    className={styles.input}
+                    placeholder="Same as indexing"
+                    defaultValue={(editingProvider as EmbeddingProvider | null)?.search_priority || ''}
+                    min="1"
+                  />
+                  <p className={styles.description}>Optional. If empty, uses indexing priority</p>
+                </div>
+              )}
 
               <div className={styles.inputGroup}>
                 <label className={styles.checkboxLabel}>

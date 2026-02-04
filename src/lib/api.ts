@@ -210,6 +210,7 @@ export interface EmbeddingProvider {
   name: 'gemini' | 'openai' | 'ollama';
   enabled: boolean;
   priority: number;
+  search_priority?: number;
   auth_type: 'api_key';
   has_api_key: boolean;
   has_oauth_token: boolean;
@@ -240,6 +241,7 @@ export interface EmbeddingProviderCreateRequest {
   name: 'gemini' | 'openai' | 'ollama';
   enabled?: boolean;
   priority?: number;
+  search_priority?: number;
   auth_type?: 'api_key';
   api_key?: string;
   config?: Record<string, any>;
