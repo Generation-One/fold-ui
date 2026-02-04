@@ -3,6 +3,7 @@ import useSWR, { mutate } from 'swr';
 import { api } from '../lib/api';
 import type { Memory } from '../lib/api';
 import { useToast } from './ToastContext';
+import { useAuth } from '../stores/auth';
 import { Modal, SourceBadge } from './ui';
 import styles from './ProjectMemberManager.module.css';
 
@@ -12,6 +13,8 @@ interface MemoryManagerProps {
 
 export function MemoryManager({ projectId }: MemoryManagerProps) {
   const { showToast } = useToast();
+  const { user } = useAuth();
+  const isAdmin = user?.roles?.includes('admin') ?? false;
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null);
@@ -114,6 +117,16 @@ export function MemoryManager({ projectId }: MemoryManagerProps) {
     });
     setIsEditOpen(true);
   };
+
+  if (!isAdmin) {
+    return (
+      <div className={styles.container}>
+        <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+          <p>Memory management is restricted to administrators.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.container}>
