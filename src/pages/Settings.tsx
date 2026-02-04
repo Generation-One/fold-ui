@@ -905,14 +905,14 @@ export function Settings() {
           {selectedProviderName !== 'claudecode' && (selectedProviderName !== 'anthropic' || selectedAuthType === 'api_key') && (
             <div className={styles.inputGroup}>
               <label className={styles.label}>
-                API Key {!editingProvider && '*'}
+                {selectedProviderName === 'ollama' ? 'Custom URL' : 'API Key'} {!editingProvider && selectedProviderName !== 'ollama' && '*'}
               </label>
               <input
-                type="password"
+                type={selectedProviderName === 'ollama' ? 'text' : 'password'}
                 name="api_key"
                 className={styles.input}
-                placeholder={editingProvider ? '(unchanged)' : 'sk-...'}
-                required={!editingProvider}
+                placeholder={editingProvider ? '(unchanged)' : selectedProviderName === 'ollama' ? 'http://localhost:11434' : 'sk-...'}
+                required={!editingProvider && selectedProviderName !== 'ollama'}
               />
               {editingProvider && (
                 <p className={styles.hint}>Leave blank to keep existing key</p>
@@ -944,8 +944,8 @@ export function Settings() {
               )}
               {!editingProvider && selectedProviderName === 'ollama' && (
                 <p className={styles.hint}>
-                  Ollama runs locally. Make sure it's running at{' '}
-                  <code>http://localhost:11434</code> (or provide your custom URL in the API key field)
+                  Ollama runs locally. Leave blank to use default{' '}
+                  <code>http://localhost:11434</code> or enter a custom URL
                 </p>
               )}
             </div>
