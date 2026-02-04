@@ -29,12 +29,7 @@ const navItems = [
       { path: '/jobs', label: 'Jobs', icon: 'list' },
       { path: '/mcp', label: 'MCP Tester', icon: 'tool' },
       { path: '/settings', label: 'Settings', icon: 'settings' },
-    ],
-  },
-  {
-    section: 'Admin',
-    items: [
-      { path: '/admin', label: 'Admin Panel', icon: 'admin', adminOnly: true },
+      { path: '/admin', label: 'Users', icon: 'users', adminOnly: true },
     ],
   },
 ];
@@ -100,6 +95,14 @@ const icons: Record<string, ReactNode> = {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
       <circle cx="12" cy="7" r="4" />
+    </svg>
+  ),
+  users: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
     </svg>
   ),
 };
@@ -216,11 +219,13 @@ export function Layout() {
         </Link>
 
         <div className={styles.headerCenter}>
-          <ProjectSelector
-            value={selectedProjectId}
-            onChange={selectProject}
-            placeholder="Select a project..."
-          />
+          {isAuthenticated && (
+            <ProjectSelector
+              value={selectedProjectId}
+              onChange={selectProject}
+              placeholder="Select a project..."
+            />
+          )}
         </div>
 
         <div className={styles.headerStatus}>
@@ -257,37 +262,47 @@ export function Layout() {
       {/* Sidebar */}
       <nav className={styles.sidebar}>
         {navItems.map((section) => {
-          // Skip admin section if user is not admin
-          if (section.section === 'Admin' && !user?.roles?.includes('admin')) {
+          // Filter items based on authentication, admin access, and project selection
+          const visibleItems = section.items.filter((item) => {
+            // Skip admin-only items if user is not admin
+            if (item.adminOnly && !user?.roles?.includes('admin')) {
+              return false;
+            }
+            // Skip Search and Memories if no project is selected
+            if ((item.path === '/search' || item.path === '/memories') && !selectedProjectId) {
+              return false;
+            }
+            // When not authenticated, only show Settings
+            if (!isAuthenticated && item.path !== '/settings') {
+              return false;
+            }
+            return true;
+          });
+
+          // Skip section if no visible items
+          if (visibleItems.length === 0) {
             return null;
           }
 
           return (
             <div key={section.section} className={styles.navSection}>
               <div className={styles.navLabel}>{section.section}</div>
-              {section.items.map((item) => {
-                // Skip Search and Memories if no project is selected
-                if ((item.path === '/search' || item.path === '/memories') && !selectedProjectId) {
-                  return null;
-                }
-
-                return (
-                  <NavLink
-                    key={item.path}
-                    to={item.path}
-                    className={({ isActive }) =>
-                      `${styles.navItem} ${isActive ? styles.active : ''}`
-                    }
-                    end={item.path === '/'}
-                  >
-                    <span className={styles.navIcon}>{icons[item.icon]}</span>
-                    {item.label}
-                    {item.path === '/jobs' && jobCount > 0 && (
-                      <span className={styles.navBadge}>{jobCount}</span>
-                    )}
-                  </NavLink>
-                );
-              })}
+              {visibleItems.map((item) => (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  className={({ isActive }) =>
+                    `${styles.navItem} ${isActive ? styles.active : ''}`
+                  }
+                  end={item.path === '/'}
+                >
+                  <span className={styles.navIcon}>{icons[item.icon]}</span>
+                  {item.label}
+                  {item.path === '/jobs' && jobCount > 0 && (
+                    <span className={styles.navBadge}>{jobCount}</span>
+                  )}
+                </NavLink>
+              ))}
             </div>
           );
         })}

@@ -229,34 +229,29 @@ export function AdminPanel() {
   // If editing a user, show the edit page instead
   if (editingUserId && editingUser) {
     return (
-      <div className={styles.container}>
-        <motion.div
-          className={styles.header}
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
+      <>
+        <div className={styles.pageHeader}>
           <button
-            className={styles.btnSecondary}
+            className={styles.backBtn}
             onClick={() => {
               setEditingUserId(null);
               setEditingUser(null);
               setUserFormData({ email: '', display_name: '', role: 'member' });
               setUserTokens([]);
             }}
-            style={{ marginBottom: '1rem' }}
           >
             ← Back to Users
           </button>
-          <h1>Edit User</h1>
-          <p>{editingUser.display_name || editingUser.email || editingUser.id}</p>
-        </motion.div>
+          <h1 className={styles.pageTitle}>Edit User</h1>
+          <p className={styles.pageSubtitle}>{editingUser.display_name || editingUser.email || editingUser.id}</p>
+        </div>
 
         <motion.div
-          className={styles.content}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
         >
-          <div className={styles.card}>
+          <div className={styles.formCard}>
             <div className={styles.form}>
               <div className={styles.formGroup}>
                 <label>Email</label>
@@ -442,31 +437,48 @@ export function AdminPanel() {
             </div>
           </div>
         </Modal>
-      </div>
+      </>
     );
   }
 
   return (
-    <div className={styles.container}>
-      <motion.div
-        className={styles.header}
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-      >
-        <h1>Admin Panel</h1>
-        <p>Manage users, groups, and permissions</p>
-      </motion.div>
+    <>
+      <div className={styles.pageHeader}>
+        <div className={styles.pageHeaderTop}>
+          <h1 className={styles.pageTitle}>Users</h1>
+          {mainTab === 'users' && (
+            <button
+              className={styles.btnPrimary}
+              onClick={() => {
+                setUserFormData({ email: '', display_name: '', role: 'member' });
+                setIsCreateUserOpen(true);
+              }}
+            >
+              + Create User
+            </button>
+          )}
+          {mainTab === 'groups' && (
+            <button
+              className={styles.btnPrimary}
+              onClick={() => setIsCreateGroupOpen(true)}
+            >
+              + Create Group
+            </button>
+          )}
+        </div>
+        <p className={styles.pageSubtitle}>Manage users, groups, and permissions</p>
+      </div>
 
       {/* Tabs */}
-      <div className={styles.tabs}>
+      <div className={styles.mainTabs}>
         <button
-          className={`${styles.tab} ${mainTab === 'users' ? styles.active : ''}`}
+          className={`${styles.mainTab} ${mainTab === 'users' ? styles.active : ''}`}
           onClick={() => setMainTab('users')}
         >
           Users
         </button>
         <button
-          className={`${styles.tab} ${mainTab === 'groups' ? styles.active : ''}`}
+          className={`${styles.mainTab} ${mainTab === 'groups' ? styles.active : ''}`}
           onClick={() => setMainTab('groups')}
         >
           Groups
@@ -476,110 +488,87 @@ export function AdminPanel() {
       {/* Users Tab */}
       {mainTab === 'users' && (
         <motion.div
-          className={styles.content}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
         >
-          <div className={styles.card}>
-            <div className={styles.cardHeader}>
-              <h2>Users</h2>
-              <button
-                className={styles.btnPrimary}
-                onClick={() => {
-                  setUserFormData({ email: '', display_name: '', role: 'member' });
-                  setIsCreateUserOpen(true);
-                }}
-              >
-                + Create User
-              </button>
-            </div>
-            {usersError && <div className={styles.error}>Failed to load users</div>}
+          {usersError && <div className={styles.error}>Failed to load users</div>}
 
-            {users && users.length > 0 ? (
-              <div className={styles.list}>
-                {users.map((u) => (
-                  <div
-                    key={u.id}
-                    className={styles.item}
-                    onClick={() => {
-                      setEditingUser(u);
-                      setUserFormData({
-                        email: u.email || '',
-                        display_name: u.display_name || '',
-                        role: u.role as any,
-                      });
-                      handleFetchUserTokens(u.id);
-                      setEditingUserId(u.id);
-                    }}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <div className={styles.itemInfo}>
-                      <div className={styles.itemName}>{u.display_name || u.email || u.id}</div>
-                      <div className={styles.itemMeta}>
-                        <span className={styles.role}>{u.role}</span>
-                        <span className={styles.email}>{u.email}</span>
-                      </div>
-                    </div>
-                    <div className={styles.itemActions} onClick={(e) => e.stopPropagation()}>
-                      <button
-                        className={styles.btnSmall}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingUser(u);
-                          setUserFormData({
-                            email: u.email || '',
-                            display_name: u.display_name || '',
-                            role: u.role as any,
-                          });
-                          handleFetchUserTokens(u.id);
-                          setEditingUserId(u.id);
-                        }}
-                      >
-                        Edit
-                      </button>
-                      {u.id !== user?.id && (
-                        <button
-                          className={`${styles.btnSmall} ${styles.danger}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteUser(u.id);
-                          }}
-                        >
-                          Delete
-                        </button>
-                      )}
+          {users && users.length > 0 ? (
+            <div className={styles.list}>
+              {users.map((u) => (
+                <div
+                  key={u.id}
+                  className={styles.item}
+                  onClick={() => {
+                    setEditingUser(u);
+                    setUserFormData({
+                      email: u.email || '',
+                      display_name: u.display_name || '',
+                      role: u.role as any,
+                    });
+                    handleFetchUserTokens(u.id);
+                    setEditingUserId(u.id);
+                  }}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <div className={styles.itemInfo}>
+                    <div className={styles.itemName}>{u.display_name || u.email || u.id}</div>
+                    <div className={styles.itemMeta}>
+                      <span className={styles.role}>{u.role}</span>
+                      <span className={styles.email}>{u.email}</span>
                     </div>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className={styles.empty}>No users found</div>
-            )}
-          </div>
+                  <div className={styles.itemActions} onClick={(e) => e.stopPropagation()}>
+                    <button
+                      className={styles.btnSmall}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingUser(u);
+                        setUserFormData({
+                          email: u.email || '',
+                          display_name: u.display_name || '',
+                          role: u.role as any,
+                        });
+                        handleFetchUserTokens(u.id);
+                        setEditingUserId(u.id);
+                      }}
+                    >
+                      Edit
+                    </button>
+                    {u.id !== user?.id && (
+                      <button
+                        className={`${styles.btnSmall} ${styles.danger}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteUser(u.id);
+                        }}
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className={styles.empty}>No users found</div>
+          )}
         </motion.div>
       )}
 
       {/* Groups Tab */}
       {mainTab === 'groups' && (
         <motion.div
-          className={styles.content}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
         >
+          {groupsError && <div className={styles.error}>Failed to load groups</div>}
+
           <div className={styles.twoColumn}>
             {/* Groups List */}
-            <div className={styles.card}>
-              <div className={styles.cardHeader}>
-                <h2>Groups</h2>
-                <button
-                  className={styles.btnPrimary}
-                  onClick={() => setIsCreateGroupOpen(true)}
-                >
-                  + Create Group
-                </button>
-              </div>
-              {groupsError && <div className={styles.error}>Failed to load groups</div>}
-
+            <div>
               {groups && groups.length > 0 ? (
                 <div className={styles.list}>
                   {groups.map((g) => (
@@ -767,6 +756,6 @@ export function AdminPanel() {
           )}
         </div>
       </Modal>
-    </div>
+    </>
   );
 }

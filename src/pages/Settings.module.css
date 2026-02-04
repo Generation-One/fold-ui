@@ -84,6 +84,12 @@
   justify-content: space-between;
 }
 
+.authStatusRight {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
 .statusBadge {
   display: flex;
   align-items: center;
@@ -311,12 +317,59 @@
 /* Provider Items */
 .providerItem {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 0.75rem;
   padding: 1rem;
   background: var(--elevated);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
+}
+
+.providerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.providerName {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.providerStatusBadge {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.65rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.providerStatusBadge.enabled {
+  background: rgba(16, 185, 129, 0.15);
+  color: var(--status-healthy);
+}
+
+.providerStatusBadge.disabled {
+  background: rgba(239, 68, 68, 0.15);
+  color: var(--status-error);
+}
+
+.providerStatusDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.providerBody {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 1rem;
 }
 
@@ -325,12 +378,6 @@
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-}
-
-.providerName {
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--text-primary);
 }
 
 .providerMeta {
@@ -357,13 +404,41 @@
   gap: 0.5rem;
 }
 
-.testBtn,
-.editBtn,
-.deleteBtn {
+.testBtn {
   padding: 0.5rem 0.875rem;
   font-size: 0.75rem;
   border-radius: var(--radius-md);
   transition: all 0.2s var(--ease-out-expo);
+}
+
+.iconBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: var(--radius-md);
+  transition: all 0.2s var(--ease-out-expo);
+}
+
+.iconBtn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.editBtn {
+  composes: iconBtn;
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+.deleteBtn {
+  composes: iconBtn;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: var(--status-error);
 }
 
 .testBtn {
@@ -382,21 +457,9 @@
   cursor: not-allowed;
 }
 
-.editBtn {
-  background: var(--elevated);
-  border: 1px solid var(--border);
-  color: var(--text-secondary);
-}
-
 .editBtn:hover {
   border-color: var(--holo-cyan);
   color: var(--holo-cyan);
-}
-
-.deleteBtn {
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
-  color: var(--status-error);
 }
 
 .deleteBtn:hover {
