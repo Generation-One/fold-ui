@@ -313,6 +313,21 @@
   border-top: 1px solid var(--border);
 }
 
+.editBtn {
+  padding: 0.5rem 1rem;
+  font-size: 0.75rem;
+  color: var(--holo-cyan);
+  border: 1px solid rgba(0, 212, 255, 0.3);
+  border-radius: var(--radius-md);
+  transition: all 0.2s var(--ease-out-expo);
+  background: transparent;
+}
+
+.editBtn:hover {
+  background: rgba(0, 212, 255, 0.1);
+  border-color: rgba(0, 212, 255, 0.5);
+}
+
 .deleteBtn {
   padding: 0.5rem 1rem;
   font-size: 0.75rem;
@@ -320,6 +335,7 @@
   border: 1px solid rgba(239, 68, 68, 0.3);
   border-radius: var(--radius-md);
   transition: all 0.2s var(--ease-out-expo);
+  background: transparent;
 }
 
 .deleteBtn:hover {

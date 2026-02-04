@@ -27,8 +27,16 @@ export function Memories() {
   const [loadingContent, setLoadingContent] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [editingMemory, setEditingMemory] = useState<Memory | null>(null);
   const [creating, setCreating] = useState(false);
+  const [updating, setUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    title: '',
+    tags: '',
+    author: '',
+  });
 
   // Projects are fetched by ProjectSelector, but we warm the cache here
   useSWR<Project[]>('projects', api.listProjects);
@@ -113,6 +121,41 @@ export function Memories() {
       }
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Failed to delete memory');
+    }
+  };
+
+  const handleEdit = (memory: Memory) => {
+    setEditingMemory(memory);
+    setEditFormData({
+      title: memory.title || '',
+      tags: memory.tags?.join(', ') || '',
+      author: memory.author || '',
+    });
+    setIsEditOpen(true);
+  };
+
+  const handleUpdate = async () => {
+    if (!selectedProject || !editingMemory || !editFormData.title.trim()) {
+      setError('Title is required');
+      return;
+    }
+
+    setUpdating(true);
+    setError(null);
+
+    try {
+      await api.updateMemory(selectedProject, editingMemory.id, {
+        title: editFormData.title,
+        author: editFormData.author || undefined,
+        tags: editFormData.tags ? editFormData.tags.split(',').map(t => t.trim()).filter(Boolean) : undefined,
+      });
+      mutate(memoriesKey);
+      setIsEditOpen(false);
+      setEditingMemory(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update memory');
+    } finally {
+      setUpdating(false);
     }
   };
 
@@ -312,6 +355,9 @@ export function Memories() {
 
                     {isAdmin && (
                       <div className={styles.memoryActions}>
+                        <button className={styles.editBtn} onClick={() => handleEdit(memory)}>
+                          Edit
+                        </button>
                         <button className={styles.deleteBtn} onClick={() => handleDelete(memory)}>
                           Delete
                         </button>
@@ -386,6 +432,81 @@ export function Memories() {
             />
           </div>
         </form>
+      </Modal>
+
+      {/* Edit Modal */}
+      <Modal
+        isOpen={isEditOpen}
+        onClose={() => {
+          setIsEditOpen(false);
+          setEditingMemory(null);
+        }}
+        title="Edit Memory"
+        footer={
+          <div className={styles.formActions}>
+            <button className={styles.cancelBtn} onClick={() => {
+              setIsEditOpen(false);
+              setEditingMemory(null);
+            }}>
+              Cancel
+            </button>
+            <button
+              className={styles.submitBtn}
+              onClick={handleUpdate}
+              disabled={updating}
+            >
+              {updating ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        }
+      >
+        {editingMemory && (
+          <form className={styles.form}>
+            {error && <div className={styles.error}>{error}</div>}
+
+            <div className={styles.formGroup}>
+              <label className={styles.label} htmlFor="edit-title">
+                Title *
+              </label>
+              <input
+                type="text"
+                id="edit-title"
+                value={editFormData.title}
+                onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
+                className={styles.input}
+                placeholder="Enter a title for this memory..."
+              />
+            </div>
+
+            <div className={styles.formGroup}>
+              <label className={styles.label} htmlFor="edit-author">
+                Author
+              </label>
+              <input
+                type="text"
+                id="edit-author"
+                value={editFormData.author}
+                onChange={(e) => setEditFormData({ ...editFormData, author: e.target.value })}
+                className={styles.input}
+                placeholder="Memory author"
+              />
+            </div>
+
+            <div className={styles.formGroup}>
+              <label className={styles.label} htmlFor="edit-tags">
+                Tags
+              </label>
+              <input
+                type="text"
+                id="edit-tags"
+                value={editFormData.tags}
+                onChange={(e) => setEditFormData({ ...editFormData, tags: e.target.value })}
+                className={styles.input}
+                placeholder="tag1, tag2, tag3 (comma-separated)"
+              />
+            </div>
+          </form>
+        )}
       </Modal>
     </motion.div>
   );
