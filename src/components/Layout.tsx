@@ -31,6 +31,12 @@ const navItems = [
       { path: '/settings', label: 'Settings', icon: 'settings' },
     ],
   },
+  {
+    section: 'Admin',
+    items: [
+      { path: '/admin', label: 'Admin Panel', icon: 'admin', adminOnly: true },
+    ],
+  },
 ];
 
 const icons: Record<string, ReactNode> = {
@@ -90,11 +96,17 @@ const icons: Record<string, ReactNode> = {
       <path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z" />
     </svg>
   ),
+  admin: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
+  ),
 };
 
 export function Layout() {
   const location = useLocation();
-  const { isAuthenticated, clearAuth } = useAuth();
+  const { isAuthenticated, clearAuth, user } = useAuth();
   const { selectedProjectId, selectProject } = useProject();
 
   const { data: status } = useSWR(
@@ -208,27 +220,34 @@ export function Layout() {
 
       {/* Sidebar */}
       <nav className={styles.sidebar}>
-        {navItems.map((section) => (
-          <div key={section.section} className={styles.navSection}>
-            <div className={styles.navLabel}>{section.section}</div>
-            {section.items.map((item) => (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                className={({ isActive }) =>
-                  `${styles.navItem} ${isActive ? styles.active : ''}`
-                }
-                end={item.path === '/'}
-              >
-                <span className={styles.navIcon}>{icons[item.icon]}</span>
-                {item.label}
-                {item.path === '/jobs' && jobCount > 0 && (
-                  <span className={styles.navBadge}>{jobCount}</span>
-                )}
-              </NavLink>
-            ))}
-          </div>
-        ))}
+        {navItems.map((section) => {
+          // Skip admin section if user is not admin
+          if (section.section === 'Admin' && !user?.roles?.includes('admin')) {
+            return null;
+          }
+
+          return (
+            <div key={section.section} className={styles.navSection}>
+              <div className={styles.navLabel}>{section.section}</div>
+              {section.items.map((item) => (
+                <NavLink
+                  key={item.path}
+                  to={item.path}
+                  className={({ isActive }) =>
+                    `${styles.navItem} ${isActive ? styles.active : ''}`
+                  }
+                  end={item.path === '/'}
+                >
+                  <span className={styles.navIcon}>{icons[item.icon]}</span>
+                  {item.label}
+                  {item.path === '/jobs' && jobCount > 0 && (
+                    <span className={styles.navBadge}>{jobCount}</span>
+                  )}
+                </NavLink>
+              ))}
+            </div>
+          );
+        })}
       </nav>
 
       {/* Main Content */}

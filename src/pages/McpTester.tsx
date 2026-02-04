@@ -3,7 +3,6 @@ import { motion } from 'framer-motion';
 import { JSONRPCClient } from 'json-rpc-2.0';
 import { useAuth } from '../stores/auth';
 import { api, API_BASE } from '../lib/api';
-import type { ApiTokenInfo, CreateTokenResponse } from '../lib/api';
 import styles from './McpTester.module.css';
 
 // Derive MCP URL from API_BASE
@@ -46,48 +45,10 @@ export function McpTester() {
   const [activeTab, setActiveTab] = useState<'setup' | 'tester'>('setup');
 
   // MCP Setup state
-  const [tokens, setTokens] = useState<ApiTokenInfo[]>([]);
-  const [newTokenName, setNewTokenName] = useState('');
-  const [newToken, setNewToken] = useState<CreateTokenResponse | null>(null);
-  const [creatingToken, setCreatingToken] = useState(false);
   const [selectedClient, setSelectedClient] = useState<string>('claude-code');
   const [copiedCommand, setCopiedCommand] = useState<string | null>(null);
 
   const clientRef = useRef<JSONRPCClient | null>(null);
-
-  // Fetch tokens on mount
-  useEffect(() => {
-    if (token) {
-      api.listApiTokens().then(res => setTokens(res.tokens)).catch(() => {});
-    }
-  }, [token]);
-
-  const handleCreateToken = async () => {
-    if (!newTokenName.trim()) return;
-    setCreatingToken(true);
-    try {
-      const created = await api.createApiToken({ name: newTokenName.trim() });
-      setNewToken(created);
-      setNewTokenName('');
-      // Refresh token list
-      const res = await api.listApiTokens();
-      setTokens(res.tokens);
-    } catch (err) {
-      console.error('Failed to create token:', err);
-    } finally {
-      setCreatingToken(false);
-    }
-  };
-
-  const handleRevokeToken = async (tokenId: string) => {
-    try {
-      await api.revokeApiToken(tokenId);
-      const res = await api.listApiTokens();
-      setTokens(res.tokens);
-    } catch (err) {
-      console.error('Failed to revoke token:', err);
-    }
-  };
 
   const copyToClipboard = async (text: string, id: string) => {
     try {
@@ -99,8 +60,8 @@ export function McpTester() {
     }
   };
 
-  // Get the token to use in commands (newly created or current session token)
-  const displayToken = newToken?.token || token || 'YOUR_TOKEN_HERE';
+  // Get the token to use in commands (from current session)
+  const displayToken = token || 'YOUR_TOKEN_HERE';
 
   // MCP client configurations - uses DEFAULT_MCP_URL from env
   const mcpClients = useMemo(() => ({
@@ -481,85 +442,6 @@ curl -X POST ${DEFAULT_MCP_URL} \\
       {/* Client Setup Tab */}
       {activeTab === 'setup' && (
         <div className={styles.setupTab}>
-            {/* Token Management */}
-            <div className={styles.tokenSection}>
-              <div className={styles.tokenSectionTitle}>API Tokens</div>
-
-              {tokens.filter(t => !t.revoked_at).length === 0 ? (
-                <div className={styles.emptyTokens}>
-                  No active API tokens. Create one to use with MCP clients.
-                </div>
-              ) : (
-                <div className={styles.tokenList}>
-                  {tokens.filter(t => !t.revoked_at).map(t => (
-                    <div key={t.id} className={styles.tokenItem}>
-                      <div className={styles.tokenInfo}>
-                        <span className={styles.tokenName}>{t.name}</span>
-                        <div className={styles.tokenMeta}>
-                          <span className={styles.tokenPrefix}>fold_{t.token_prefix}_...</span>
-                          <span>Created {new Date(t.created_at).toLocaleDateString()}</span>
-                          {t.last_used && <span>Last used {new Date(t.last_used).toLocaleDateString()}</span>}
-                        </div>
-                      </div>
-                      <div className={styles.tokenActions}>
-                        <button className={styles.revokeBtn} onClick={() => handleRevokeToken(t.id)}>
-                          Revoke
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div className={styles.createTokenForm}>
-                <input
-                  type="text"
-                  className={styles.tokenNameInput}
-                  value={newTokenName}
-                  onChange={(e) => setNewTokenName(e.target.value)}
-                  placeholder="Token name (e.g., Claude Code, Cursor)"
-                  onKeyDown={(e) => e.key === 'Enter' && handleCreateToken()}
-                />
-                <button
-                  className={styles.createTokenBtn}
-                  onClick={handleCreateToken}
-                  disabled={creatingToken || !newTokenName.trim()}
-                >
-                  {creatingToken ? 'Creating...' : 'Generate Token'}
-                </button>
-              </div>
-
-              {newToken && (
-                <div className={styles.newTokenDisplay}>
-                  <div className={styles.newTokenLabel}>
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
-                      <polyline points="22 4 12 14.01 9 11.01" />
-                    </svg>
-                    New token created - copy it now, it won't be shown again!
-                  </div>
-                  <div className={styles.newTokenValue}>
-                    <code className={styles.newTokenText}>{newToken.token}</code>
-                    <button
-                      className={`${styles.copyBtn} ${copiedCommand === 'new-token' ? styles.copied : ''}`}
-                      onClick={() => copyToClipboard(newToken.token, 'new-token')}
-                    >
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        {copiedCommand === 'new-token' ? (
-                          <polyline points="20 6 9 17 4 12" />
-                        ) : (
-                          <>
-                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                            <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
-                          </>
-                        )}
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
             {/* MCP Client Instructions */}
             <div className={styles.tokenSectionTitle}>Setup Instructions</div>
 

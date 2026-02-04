@@ -376,7 +376,7 @@ class FoldApiClient {
     return this.token;
   }
 
-  private async request<T>(
+  private async _fetch<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
@@ -408,21 +408,32 @@ class FoldApiClient {
     return JSON.parse(text) as T;
   }
 
+  // Public request method for generic API calls
+  async request<T = any>(method: string, endpoint: string, body?: any): Promise<T> {
+    const options: RequestInit = {
+      method,
+    };
+    if (body) {
+      options.body = JSON.stringify(body);
+    }
+    return this._fetch<T>(endpoint, options);
+  }
+
   // Public endpoints
   async getStatus(): Promise<SystemStatus> {
-    return this.request<SystemStatus>('/status');
+    return this._fetch<SystemStatus>('/status');
   }
 
   async getJobs(limit = 20, offset = 0): Promise<JobsResponse> {
-    return this.request<JobsResponse>(`/status/jobs?limit=${limit}&offset=${offset}`);
+    return this._fetch<JobsResponse>(`/status/jobs?limit=${limit}&offset=${offset}`);
   }
 
   async getAuthProviders(): Promise<{ providers: AuthProvider[] }> {
-    return this.request<{ providers: AuthProvider[] }>('/auth/providers');
+    return this._fetch<{ providers: AuthProvider[] }>('/auth/providers');
   }
 
   async bootstrap(data: BootstrapRequest): Promise<BootstrapResponse> {
-    return this.request<BootstrapResponse>('/auth/bootstrap', {
+    return this._fetch<BootstrapResponse>('/auth/bootstrap', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -430,28 +441,28 @@ class FoldApiClient {
 
   // Protected endpoints
   async getProjects(): Promise<{ projects: Project[]; total: number }> {
-    return this.request<{ projects: Project[]; total: number }>('/projects');
+    return this._fetch<{ projects: Project[]; total: number }>('/projects');
   }
 
   async getProject(id: string): Promise<Project> {
-    return this.request<Project>(`/projects/${id}`);
+    return this._fetch<Project>(`/projects/${id}`);
   }
 
   async createProject(data: Partial<Project>): Promise<Project> {
-    return this.request<Project>('/projects', {
+    return this._fetch<Project>('/projects', {
       method: 'POST',
       body: JSON.stringify(data),
     });
   }
 
   async deleteProject(id: string): Promise<void> {
-    return this.request<void>(`/projects/${id}`, {
+    return this._fetch<void>(`/projects/${id}`, {
       method: 'DELETE',
     });
   }
 
   async updateProject(id: string, data: Partial<Project>): Promise<Project> {
-    return this.request<Project>(`/projects/${id}`, {
+    return this._fetch<Project>(`/projects/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
@@ -459,53 +470,53 @@ class FoldApiClient {
 
   // Algorithm Configuration
   async getAlgorithmConfig(projectId: string): Promise<AlgorithmConfig> {
-    return this.request<AlgorithmConfig>(`/projects/${projectId}/config/algorithm`);
+    return this._fetch<AlgorithmConfig>(`/projects/${projectId}/config/algorithm`);
   }
 
   async updateAlgorithmConfig(projectId: string, config: Partial<AlgorithmConfig>): Promise<AlgorithmConfig> {
-    return this.request<AlgorithmConfig>(`/projects/${projectId}/config/algorithm`, {
+    return this._fetch<AlgorithmConfig>(`/projects/${projectId}/config/algorithm`, {
       method: 'PUT',
       body: JSON.stringify(config),
     });
   }
 
   async listRepositories(projectId: string): Promise<Repository[]> {
-    const result = await this.request<{ repositories: Repository[] } | Repository[]>(`/projects/${projectId}/repositories`);
+    const result = await this.request<{ repositories: Repository[] } | Repository[]>('GET', `/projects/${projectId}/repositories`);
     // Handle both array and object response formats
     return Array.isArray(result) ? result : (result.repositories || []);
   }
 
   async getRepository(projectId: string, repoId: string): Promise<Repository> {
-    return this.request<Repository>(`/projects/${projectId}/repositories/${repoId}`);
+    return this._fetch<Repository>(`/projects/${projectId}/repositories/${repoId}`);
   }
 
   async createRepository(projectId: string, data: RepositoryCreateRequest): Promise<Repository> {
-    return this.request<Repository>(`/projects/${projectId}/repositories`, {
+    return this._fetch<Repository>(`/projects/${projectId}/repositories`, {
       method: 'POST',
       body: JSON.stringify(data),
     });
   }
 
   async deleteRepository(projectId: string, repoId: string): Promise<void> {
-    return this.request<void>(`/projects/${projectId}/repositories/${repoId}`, {
+    return this._fetch<void>(`/projects/${projectId}/repositories/${repoId}`, {
       method: 'DELETE',
     });
   }
 
   async reindexRepository(projectId: string, repoId: string): Promise<void> {
-    return this.request<void>(`/projects/${projectId}/repositories/${repoId}/reindex`, {
+    return this._fetch<void>(`/projects/${projectId}/repositories/${repoId}/reindex`, {
       method: 'POST',
     });
   }
 
   async syncRepository(projectId: string, repoId: string): Promise<void> {
-    return this.request<void>(`/projects/${projectId}/repositories/${repoId}/sync`, {
+    return this._fetch<void>(`/projects/${projectId}/repositories/${repoId}/sync`, {
       method: 'POST',
     });
   }
 
   async updateRepository(projectId: string, repoId: string, data: RepositoryUpdateRequest): Promise<Repository> {
-    return this.request<Repository>(`/projects/${projectId}/repositories/${repoId}`, {
+    return this._fetch<Repository>(`/projects/${projectId}/repositories/${repoId}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
     });
@@ -520,7 +531,7 @@ class FoldApiClient {
     if (params.limit) query.set('limit', String(params.limit));
     if (params.offset) query.set('offset', String(params.offset));
 
-    return this.request<{ memories: Memory[]; total: number }>(
+    return this._fetch<{ memories: Memory[]; total: number }>(
       `/projects/${projectId}/memories?${query}`
     );
   }
@@ -530,7 +541,7 @@ class FoldApiClient {
     memoryId: string,
     depth: number = 2
   ): Promise<MemoryContext> {
-    return this.request<MemoryContext>(
+    return this._fetch<MemoryContext>(
       `/projects/${projectId}/context/${memoryId}?depth=${depth}`
     );
   }
@@ -559,7 +570,7 @@ class FoldApiClient {
       body.decay_half_life_days = options.decay_half_life_days;
     }
 
-    return this.request<{ results: Array<Memory & { score: number; strength?: number; combined_score?: number; content?: string }> }>(
+    return this._fetch<{ results: Array<Memory & { score: number; strength?: number; combined_score?: number; content?: string }> }>(
       `/projects/${projectId}/search`,
       {
         method: 'POST',
@@ -569,14 +580,14 @@ class FoldApiClient {
   }
 
   async createMemory(projectId: string, data: Partial<Memory>): Promise<Memory> {
-    return this.request<Memory>(`/projects/${projectId}/memories`, {
+    return this._fetch<Memory>(`/projects/${projectId}/memories`, {
       method: 'POST',
       body: JSON.stringify(data),
     });
   }
 
   async deleteMemory(projectId: string, memoryId: string): Promise<void> {
-    return this.request<void>(`/projects/${projectId}/memories/${memoryId}`, {
+    return this._fetch<void>(`/projects/${projectId}/memories/${memoryId}`, {
       method: 'DELETE',
     });
   }
@@ -587,30 +598,30 @@ class FoldApiClient {
     name: string;
     roles: string[];
   }> {
-    return this.request('/auth/me');
+    return this._fetch('/auth/me');
   }
 
   // LLM Providers
   async listLLMProviders(): Promise<LLMProvider[]> {
-    return this.request<LLMProvider[]>('/providers/llm');
+    return this._fetch<LLMProvider[]>('/providers/llm');
   }
 
   async createLLMProvider(data: LLMProviderCreateRequest): Promise<LLMProvider> {
-    return this.request<LLMProvider>('/providers/llm', {
+    return this._fetch<LLMProvider>('/providers/llm', {
       method: 'POST',
       body: JSON.stringify(data),
     });
   }
 
   async updateLLMProvider(id: string, data: Partial<LLMProviderCreateRequest>): Promise<LLMProvider> {
-    return this.request<LLMProvider>(`/providers/llm/${id}`, {
+    return this._fetch<LLMProvider>(`/providers/llm/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
   }
 
   async deleteLLMProvider(id: string): Promise<void> {
-    return this.request<void>(`/providers/llm/${id}`, {
+    return this._fetch<void>(`/providers/llm/${id}`, {
       method: 'DELETE',
     });
   }
@@ -629,7 +640,7 @@ class FoldApiClient {
       total_tokens?: number;
     };
   }> {
-    return this.request(`/providers/llm/${id}/test`, {
+    return this._fetch(`/providers/llm/${id}/test`, {
       method: 'POST',
     });
   }
@@ -641,17 +652,17 @@ class FoldApiClient {
 
   // Claude Code Provider
   async getClaudeCodeStatus(): Promise<ClaudeCodeStatus> {
-    return this.request<ClaudeCodeStatus>('/providers/llm/claudecode/status');
+    return this._fetch<ClaudeCodeStatus>('/providers/llm/claudecode/status');
   }
 
   async autoImportClaudeCode(): Promise<LLMProvider> {
-    return this.request<LLMProvider>('/providers/llm/claudecode/auto-import', {
+    return this._fetch<LLMProvider>('/providers/llm/claudecode/auto-import', {
       method: 'POST',
     });
   }
 
   async importClaudeCode(data: ClaudeCodeImportRequest): Promise<LLMProvider> {
-    return this.request<LLMProvider>('/providers/llm/claudecode/import', {
+    return this._fetch<LLMProvider>('/providers/llm/claudecode/import', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -659,25 +670,25 @@ class FoldApiClient {
 
   // Embedding Providers
   async listEmbeddingProviders(): Promise<EmbeddingProvider[]> {
-    return this.request<EmbeddingProvider[]>('/providers/embedding');
+    return this._fetch<EmbeddingProvider[]>('/providers/embedding');
   }
 
   async createEmbeddingProvider(data: EmbeddingProviderCreateRequest): Promise<EmbeddingProvider> {
-    return this.request<EmbeddingProvider>('/providers/embedding', {
+    return this._fetch<EmbeddingProvider>('/providers/embedding', {
       method: 'POST',
       body: JSON.stringify(data),
     });
   }
 
   async updateEmbeddingProvider(id: string, data: Partial<EmbeddingProviderCreateRequest>): Promise<EmbeddingProvider> {
-    return this.request<EmbeddingProvider>(`/providers/embedding/${id}`, {
+    return this._fetch<EmbeddingProvider>(`/providers/embedding/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
   }
 
   async deleteEmbeddingProvider(id: string): Promise<void> {
-    return this.request<void>(`/providers/embedding/${id}`, {
+    return this._fetch<void>(`/providers/embedding/${id}`, {
       method: 'DELETE',
     });
   }
@@ -696,7 +707,7 @@ class FoldApiClient {
       total_tokens?: number;
     };
   }> {
-    return this.request(`/providers/embedding/${id}/test`, {
+    return this._fetch(`/providers/embedding/${id}/test`, {
       method: 'POST',
     });
   }
@@ -723,7 +734,7 @@ class FoldApiClient {
     if (params.branch) query.set('branch', params.branch);
     if (params.page) query.set('page', String(params.page));
     if (params.per_page) query.set('per_page', String(params.per_page));
-    return this.request(`/projects/${projectId}/repositories/${repoId}/commits?${query}`);
+    return this._fetch(`/projects/${projectId}/repositories/${repoId}/commits?${query}`);
   }
 
   async listRepositoryPullRequests(
@@ -751,7 +762,7 @@ class FoldApiClient {
     if (params.state) query.set('state', params.state);
     if (params.page) query.set('page', String(params.page));
     if (params.per_page) query.set('per_page', String(params.per_page));
-    return this.request(`/projects/${projectId}/repositories/${repoId}/pulls?${query}`);
+    return this._fetch(`/projects/${projectId}/repositories/${repoId}/pulls?${query}`);
   }
 
   // File source providers
@@ -764,7 +775,7 @@ class FoldApiClient {
       available: boolean;
     }>;
   }> {
-    return this.request('/file-sources/providers');
+    return this._fetch('/file-sources/providers');
   }
 
   // Jobs (at /status/jobs)
@@ -776,11 +787,11 @@ class FoldApiClient {
     if (params.job_type) query.set('job_type', params.job_type);
     if (params.limit) query.set('limit', String(params.limit));
     if (params.offset) query.set('offset', String(params.offset));
-    return this.request<JobsResponse>(`/status/jobs?${query}`);
+    return this._fetch<JobsResponse>(`/status/jobs?${query}`);
   }
 
   async getJobById(jobId: string): Promise<RawJob> {
-    return this.request<RawJob>(`/status/jobs/${jobId}`);
+    return this._fetch<RawJob>(`/status/jobs/${jobId}`);
   }
 
   async getJobLogs(jobId: string, params: { level?: string; limit?: number } = {}): Promise<{
@@ -791,32 +802,69 @@ class FoldApiClient {
     const query = new URLSearchParams();
     if (params.level) query.set('level', params.level);
     if (params.limit) query.set('limit', String(params.limit));
-    return this.request(`/status/jobs/${jobId}/logs?${query}`);
+    return this._fetch(`/status/jobs/${jobId}/logs?${query}`);
   }
 
   // Auth logout
   async logout(): Promise<void> {
-    return this.request('/auth/logout', {
+    return this._fetch('/auth/logout', {
       method: 'POST',
     });
   }
 
   // API Token management
   async listApiTokens(): Promise<{ tokens: ApiTokenInfo[] }> {
-    return this.request<{ tokens: ApiTokenInfo[] }>('/auth/tokens');
+    return this._fetch<{ tokens: ApiTokenInfo[] }>('/auth/tokens');
   }
 
   async createApiToken(data: CreateTokenRequest): Promise<CreateTokenResponse> {
-    return this.request<CreateTokenResponse>('/auth/tokens', {
+    return this._fetch<CreateTokenResponse>('/auth/tokens', {
       method: 'POST',
       body: JSON.stringify(data),
     });
   }
 
   async revokeApiToken(tokenId: string): Promise<void> {
-    return this.request<void>(`/auth/tokens/${tokenId}`, {
+    return this._fetch<void>(`/auth/tokens/${tokenId}`, {
       method: 'DELETE',
     });
+  }
+
+  // Admin token management (admin only)
+  async listUserApiTokens(userId: string): Promise<{ tokens: ApiTokenInfo[] }> {
+    return this._fetch<{ tokens: ApiTokenInfo[] }>(`/auth/admin/users/${userId}/tokens`);
+  }
+
+  async revokeUserApiToken(userId: string, tokenId: string): Promise<void> {
+    return this._fetch<void>(`/auth/admin/users/${userId}/tokens/${tokenId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async createUserApiToken(
+    userId: string,
+    name: string,
+    expiresInDays?: number
+  ): Promise<{ id: string; name: string; token: string; token_prefix: string; created_at: string; expires_at?: string }> {
+    return this._fetch<any>('/auth/tokens', {
+      method: 'POST',
+      body: JSON.stringify({
+        name,
+        expires_in_days: expiresInDays,
+        user_id: userId,
+      }),
+    });
+  }
+
+  // Public request method for generic API calls
+  async request<T = any>(method: string, endpoint: string, body?: any): Promise<T> {
+    const options: RequestInit = {
+      method,
+    };
+    if (body) {
+      options.body = JSON.stringify(body);
+    }
+    return this._fetch<T>(endpoint, options);
   }
 }
 
@@ -1031,4 +1079,44 @@ export const api = {
   listApiTokens: () => apiClient.listApiTokens(),
   createApiToken: (data: CreateTokenRequest) => apiClient.createApiToken(data),
   revokeApiToken: (tokenId: string) => apiClient.revokeApiToken(tokenId),
+
+  // Admin token management (admin only)
+  listUserApiTokens: (userId: string) => apiClient.listUserApiTokens(userId),
+  createUserApiToken: (userId: string, name: string, expiresInDays?: number) =>
+    apiClient.createUserApiToken(userId, name, expiresInDays),
+  revokeUserApiToken: (userId: string, tokenId: string) => apiClient.revokeUserApiToken(userId, tokenId),
+
+  // User management (admin only)
+  listUsers: async () => apiClient.request('GET', '/users'),
+  getUser: (id: string) => apiClient.request('GET', `/users/${id}`),
+  createUser: (data: any) => apiClient.request('POST', '/users', data),
+  updateUser: (id: string, data: any) => apiClient.request('PATCH', `/users/${id}`, data),
+  deleteUser: (id: string) => apiClient.request('DELETE', `/users/${id}`),
+
+  // Group management
+  listGroups: async () => apiClient.request('GET', '/groups'),
+  getGroup: (id: string) => apiClient.request('GET', `/groups/${id}`),
+  createGroup: (data: any) => apiClient.request('POST', '/groups', data),
+  updateGroup: (id: string, data: any) => apiClient.request('PATCH', `/groups/${id}`, data),
+  deleteGroup: (id: string) => apiClient.request('DELETE', `/groups/${id}`),
+  listGroupMembers: (id: string) => apiClient.request('GET', `/groups/${id}/members`),
+  addGroupMember: (groupId: string, userId: string) =>
+    apiClient.request('POST', `/groups/${groupId}/members`, { user_id: userId }),
+  removeGroupMember: (groupId: string, userId: string) =>
+    apiClient.request('DELETE', `/groups/${groupId}/members/${userId}`),
+
+  // Project Members
+  listProjectMembers: (projectId: string) =>
+    apiClient.request('GET', `/projects/${projectId}/members`),
+  addProjectMember: (projectId: string, userId: string, role: string) =>
+    apiClient.request('POST', `/projects/${projectId}/members`, {
+      user_id: userId,
+      role,
+    }),
+  removeProjectMember: (projectId: string, userId: string) =>
+    apiClient.request('DELETE', `/projects/${projectId}/members/${userId}`),
+  updateProjectMemberRole: (projectId: string, userId: string, role: string) =>
+    apiClient.request('PATCH', `/projects/${projectId}/members/${userId}`, {
+      role,
+    }),
 };

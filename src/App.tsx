@@ -9,6 +9,7 @@ import { Search } from './pages/Search';
 import { Jobs } from './pages/Jobs';
 import { McpTester } from './pages/McpTester';
 import { Settings } from './pages/Settings';
+import { AdminPanel } from './pages/AdminPanel';
 import { ToastProvider } from './components/Toast';
 import { useAuth } from './stores/auth';
 import { api } from './lib/api';
@@ -41,6 +42,7 @@ function App() {
             <Route path="jobs" element={<Jobs />} />
             <Route path="mcp" element={<McpTester />} />
             <Route path="settings" element={<Settings />} />
+            <Route path="admin" element={<AdminPanel />} />
           </Route>
         </Routes>
       </BrowserRouter>

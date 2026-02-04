@@ -220,6 +220,7 @@ export function Projects() {
           </div>
         </form>
       </Modal>
+
     </motion.div>
   );
 }

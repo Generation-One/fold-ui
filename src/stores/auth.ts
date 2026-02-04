@@ -94,8 +94,9 @@ export const useAuth = create<AuthState>()(
       name: 'fold-auth',
       partialize: (state) => ({ token: state.token }),
       onRehydrateStorage: () => (state) => {
-        // After hydration, set isAuthenticated if token exists
+        // After hydration, sync token to API client and set isAuthenticated
         if (state?.token) {
+          api.setToken(state.token);
           state.isAuthenticated = true;
         }
       },

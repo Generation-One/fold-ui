@@ -12,7 +12,7 @@ export function Settings() {
   const { token, isAuthenticated, setToken, clearAuth, bootstrap, error } = useAuth();
   const { showToast } = useToast();
   const [mainTab, setMainTab] = useState<'authentication' | 'providers'>('authentication');
-  const [authTab, setAuthTab] = useState<'token' | 'bootstrap'>('token');
+  const [authTab, setAuthTab] = useState<'token' | 'oauth' | 'bootstrap'>('token');
 
   // Token form
   const [tokenInput, setTokenInput] = useState(token || '');
@@ -24,6 +24,7 @@ export function Settings() {
   const [name, setName] = useState('');
   const [bootstrapping, setBootstrapping] = useState(false);
   const [bootstrapResult, setBootstrapResult] = useState<string | null>(null);
+
 
   const { data: providers } = useSWR('auth-providers', () => api.getAuthProviders());
 
@@ -49,6 +50,7 @@ export function Settings() {
     'embedding-providers',
     () => api.listEmbeddingProviders()
   );
+
 
   // Fetch Claude Code status when modal opens with claudecode selected
   useEffect(() => {
@@ -95,6 +97,7 @@ export function Settings() {
     setTokenSaved(true);
     setTimeout(() => setTokenSaved(false), 2000);
   };
+
 
   const handleBootstrap = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -320,6 +323,12 @@ export function Settings() {
             >
               API Token
             </button>
+<button
+              className={`${styles.tab} ${authTab === 'oauth' ? styles.active : ''}`}
+              onClick={() => setAuthTab('oauth')}
+            >
+              OAuth Login
+            </button>
             <button
               className={`${styles.tab} ${authTab === 'bootstrap' ? styles.active : ''}`}
               onClick={() => setAuthTab('bootstrap')}
@@ -354,6 +363,71 @@ export function Settings() {
                     {tokenSaved ? 'Saved!' : 'Save Token'}
                   </button>
                 </div>
+              </div>
+            )}
+
+{authTab === 'oauth' && (
+              <div className={styles.tabContent}>
+                <p className={styles.description}>
+                  Log in using your existing OAuth provider account. Choose a provider below to authenticate.
+                </p>
+
+                {providers && providers.providers && providers.providers.length > 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    {providers.providers.map((provider) => (
+                      <a
+                        key={provider.id}
+                        href={`${API_BASE}/auth/login/${provider.id}`}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.75rem',
+                          padding: '1rem',
+                          background: 'var(--elevated)',
+                          border: '1px solid var(--border)',
+                          borderRadius: 'var(--radius-md)',
+                          textDecoration: 'none',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          color: 'var(--text-primary)',
+                        }}
+                        onMouseEnter={(e) => {
+                          const el = e.currentTarget as HTMLAnchorElement;
+                          el.style.borderColor = 'var(--holo-cyan)';
+                          el.style.background = 'var(--surface)';
+                        }}
+                        onMouseLeave={(e) => {
+                          const el = e.currentTarget as HTMLAnchorElement;
+                          el.style.borderColor = 'var(--border)';
+                          el.style.background = 'var(--elevated)';
+                        }}
+                      >
+                        {provider.icon && (
+                          <img
+                            src={provider.icon}
+                            alt={provider.display_name}
+                            style={{ width: '20px', height: '20px' }}
+                          />
+                        )}
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: '0.85rem', fontWeight: 500 }}>
+                            Continue with {provider.display_name}
+                          </div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+                            {provider.type === 'oidc' ? 'OpenID Connect' : 'OAuth 2.0'}
+                          </div>
+                        </div>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ color: 'var(--text-secondary)' }}>
+                          <polyline points="9 18 15 12 9 6" />
+                        </svg>
+                      </a>
+                    ))}
+                  </div>
+                ) : (
+                  <p className={styles.description} style={{ color: 'var(--text-secondary)' }}>
+                    No OAuth providers are configured on this server.
+                  </p>
+                )}
               </div>
             )}
 
