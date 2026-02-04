@@ -11,7 +11,7 @@ import styles from './Settings.module.css';
 export function Settings() {
   const { token, isAuthenticated, setToken, clearAuth, bootstrap, error } = useAuth();
   const { showToast } = useToast();
-  const [mainTab, setMainTab] = useState<'authentication' | 'providers'>('authentication');
+  const [mainTab, setMainTab] = useState<'authentication' | 'llm' | 'embedding'>('authentication');
   const [authTab, setAuthTab] = useState<'token' | 'oauth' | 'bootstrap'>('token');
 
   // Token form
@@ -29,7 +29,6 @@ export function Settings() {
   const { data: providers } = useSWR('auth-providers', () => api.getAuthProviders());
 
   // Provider management
-  const [providerTab, setProviderTab] = useState<'llm' | 'embedding'>('llm');
   const [isCreateProviderOpen, setIsCreateProviderOpen] = useState(false);
   const [editingProvider, setEditingProvider] = useState<LLMProvider | EmbeddingProvider | null>(null);
   const [testingProvider, setTestingProvider] = useState<string | null>(null);
@@ -123,7 +122,7 @@ export function Settings() {
     const formData = new FormData(e.currentTarget);
 
     try {
-      if (providerTab === 'llm') {
+      if (mainTab === 'llm') {
         // Build config object from form fields
         const config: Record<string, any> = {};
         const model = formData.get('model') as string;
@@ -258,7 +257,7 @@ export function Settings() {
     <>
       <div className={styles.pageHeader}>
         <h1 className={styles.pageTitle}>Settings</h1>
-        <p className={styles.pageSubtitle}>Configure authentication and API access</p>
+        <p className={styles.pageSubtitle}>Configure authentication and AI providers</p>
       </div>
 
       {/* Main Tabs */}
@@ -270,10 +269,16 @@ export function Settings() {
           Authentication
         </button>
         <button
-          className={`${styles.mainTab} ${mainTab === 'providers' ? styles.active : ''}`}
-          onClick={() => setMainTab('providers')}
+          className={`${styles.mainTab} ${mainTab === 'llm' ? styles.active : ''}`}
+          onClick={() => setMainTab('llm')}
         >
-          AI Providers
+          LLM Providers
+        </button>
+        <button
+          className={`${styles.mainTab} ${mainTab === 'embedding' ? styles.active : ''}`}
+          onClick={() => setMainTab('embedding')}
+        >
+          Embedding Providers
         </button>
       </div>
 
@@ -552,45 +557,27 @@ export function Settings() {
           </>
         )}
 
-        {/* Providers Tab */}
-        {mainTab === 'providers' && (
+        {/* LLM Providers Tab */}
+        {mainTab === 'llm' && (
           <>
-            {/* LLM & Embedding Providers */}
             <motion.div
               className={styles.card}
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
             >
-          <div className={styles.cardHeader}>
-            <span className={styles.cardTitle}>LLM & Embedding Providers</span>
-            <button className={styles.primaryBtn} onClick={openCreateModal}>
-              Add Provider
-            </button>
-          </div>
+              <div className={styles.cardHeader}>
+                <span className={styles.cardTitle}>LLM Providers</span>
+                <button className={styles.primaryBtn} onClick={openCreateModal}>
+                  Add Provider
+                </button>
+              </div>
 
-          <div className={styles.tabs}>
-            <button
-              className={`${styles.tab} ${providerTab === 'llm' ? styles.active : ''}`}
-              onClick={() => setProviderTab('llm')}
-            >
-              LLM Providers
-            </button>
-            <button
-              className={`${styles.tab} ${providerTab === 'embedding' ? styles.active : ''}`}
-              onClick={() => setProviderTab('embedding')}
-            >
-              Embedding Providers
-            </button>
-          </div>
+              <div className={styles.cardContent}>
+                {llmError && (
+                  <div className={styles.error}>Failed to load providers. The endpoint may not be implemented yet.</div>
+                )}
 
-          <div className={styles.cardContent}>
-            {(llmError || embeddingError) && (
-              <div className={styles.error}>Failed to load providers. The endpoint may not be implemented yet.</div>
-            )}
-
-            {providerTab === 'llm' ? (
-              <>
                 {llmProviders && llmProviders.length > 0 ? (
                   <div className={styles.providerList}>
                     {llmProviders.map((provider) => {
@@ -658,13 +645,37 @@ export function Settings() {
                     No LLM providers configured. Add a provider to enable AI-powered features.
                   </p>
                 )}
-              </>
-            ) : (
-              <>
+              </div>
+            </motion.div>
+          </>
+        )}
+
+        {/* Embedding Providers Tab */}
+        {mainTab === 'embedding' && (
+          <>
+            <motion.div
+              className={styles.card}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <div className={styles.cardHeader}>
+                <span className={styles.cardTitle}>Embedding Providers</span>
+                <button className={styles.primaryBtn} onClick={openCreateModal}>
+                  Add Provider
+                </button>
+              </div>
+
+              <div className={styles.cardContent}>
+                {embeddingError && (
+                  <div className={styles.error}>Failed to load providers. The endpoint may not be implemented yet.</div>
+                )}
+
                 <p className={styles.providerHint}>
                   Use high-quality embedders for indexing to ensure accurate semantic matching.
                   For search, simpler or local embedders can reduce latency.
                 </p>
+
                 {embeddingProviders && embeddingProviders.length > 0 ? (
                   <div className={styles.providerList}>
                     {embeddingProviders.map((provider) => {
@@ -719,10 +730,8 @@ export function Settings() {
                     No embedding providers configured. Add a provider to enable semantic search.
                   </p>
                 )}
-              </>
-            )}
-          </div>
-        </motion.div>
+              </div>
+            </motion.div>
           </>
         )}
       </div>
@@ -757,7 +766,7 @@ export function Settings() {
       >
         <form id="provider-form" className={styles.tabContent} onSubmit={handleCreateProvider}>
           {/* Hidden input for auth_type when not Anthropic */}
-          {providerTab === 'llm' && selectedProviderName !== 'anthropic' && selectedProviderName !== 'claudecode' && (
+          {mainTab === 'llm' && selectedProviderName !== 'anthropic' && selectedProviderName !== 'claudecode' && (
             <input type="hidden" name="auth_type" value="api_key" />
           )}
 
@@ -783,7 +792,7 @@ export function Settings() {
                 }}
                 required
               >
-                {providerTab === 'llm' ? (
+                {mainTab === 'llm' ? (
                   <>
                     <option value="gemini">Gemini</option>
                     <option value="openai">OpenAI</option>
@@ -799,7 +808,7 @@ export function Settings() {
                   </>
                 )}
               </select>
-              {providerTab === 'llm' && selectedProviderName === 'anthropic' && (
+              {mainTab === 'llm' && selectedProviderName === 'anthropic' && (
                 <div style={{ marginTop: '0.75rem' }}>
                   <label className={styles.label}>Authentication *</label>
                   <select
@@ -1035,7 +1044,7 @@ export function Settings() {
                     </div>
 
                     {/* Ollama model suggestions */}
-                    {selectedProviderName === 'ollama' && providerTab === 'embedding' && (
+                    {selectedProviderName === 'ollama' && mainTab === 'embedding' && (
                       <div className={styles.modelSuggestions}>
                         <p className={styles.description} style={{ marginBottom: '0.5rem' }}>
                           <strong>Recommended models (Feb 2026):</strong>
@@ -1076,7 +1085,7 @@ export function Settings() {
                   <div className={styles.formSection}>
                     <h4 className={styles.formSectionTitle}>Priority & Status</h4>
                     <div className={styles.inputGroup}>
-                      <label className={styles.label}>{providerTab === 'embedding' ? 'Priority (Indexing)' : 'Priority'}</label>
+                      <label className={styles.label}>{mainTab === 'embedding' ? 'Priority (Indexing)' : 'Priority'}</label>
                       <input
                         type="number"
                         name="priority"
@@ -1088,7 +1097,7 @@ export function Settings() {
                       <p className={styles.description}>Lower numbers = higher priority</p>
                     </div>
 
-                    {providerTab === 'embedding' && (
+                    {mainTab === 'embedding' && (
                       <div className={styles.inputGroup}>
                         <label className={styles.label}>Priority (Search)</label>
                         <input
