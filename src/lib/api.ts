@@ -542,7 +542,7 @@ class FoldApiClient {
     depth: number = 2
   ): Promise<MemoryContext> {
     return this._fetch<MemoryContext>(
-      `/projects/${projectId}/context/${memoryId}?depth=${depth}`
+      `/projects/${projectId}/memories/context/${memoryId}?depth=${depth}`
     );
   }
 
