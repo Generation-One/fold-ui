@@ -70,6 +70,7 @@ export function Memories() {
     const tagsInput = formData.get('tags') as string;
     const data = {
       title: formData.get('title') as string || undefined,
+      content: formData.get('content') as string || '',
       source: 'manual' as MemorySource,
       tags: tagsInput ? tagsInput.split(',').map((t) => t.trim()).filter(Boolean) : undefined,
       author: 'ui',
@@ -415,6 +416,20 @@ export function Memories() {
               name="title"
               className={styles.input}
               placeholder="Enter a title for this memory..."
+              required
+            />
+          </div>
+
+          <div className={styles.formGroup}>
+            <label className={styles.label} htmlFor="content">
+              Content *
+            </label>
+            <textarea
+              id="content"
+              name="content"
+              className={styles.input}
+              placeholder="Enter the memory content..."
+              rows={6}
               required
             />
           </div>
