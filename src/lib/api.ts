@@ -207,7 +207,7 @@ export interface LLMProvider {
 
 export interface EmbeddingProvider {
   id: string;
-  name: 'gemini' | 'openai';
+  name: 'gemini' | 'openai' | 'ollama';
   enabled: boolean;
   priority: number;
   auth_type: 'api_key';
@@ -237,7 +237,7 @@ export interface LLMProviderCreateRequest {
 }
 
 export interface EmbeddingProviderCreateRequest {
-  name: 'gemini' | 'openai';
+  name: 'gemini' | 'openai' | 'ollama';
   enabled?: boolean;
   priority?: number;
   auth_type?: 'api_key';

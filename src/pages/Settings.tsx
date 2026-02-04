@@ -155,7 +155,7 @@ export function Settings() {
         if (dimension) config.dimension = Number(dimension);
 
         const data: EmbeddingProviderCreateRequest = {
-          name: formData.get('name') as 'gemini' | 'openai',
+          name: formData.get('name') as 'gemini' | 'openai' | 'ollama',
           auth_type: 'api_key',
           api_key: formData.get('api_key') as string,
           priority: formData.get('priority') ? Number(formData.get('priority')) : undefined,
@@ -783,6 +783,7 @@ export function Settings() {
                 <>
                   <option value="gemini">Gemini</option>
                   <option value="openai">OpenAI</option>
+                  <option value="ollama">Ollama</option>
                 </>
               )}
             </select>
@@ -945,6 +946,12 @@ export function Settings() {
                   </a>
                 </p>
               )}
+              {!editingProvider && selectedProviderName === 'ollama' && (
+                <p className={styles.hint}>
+                  Ollama runs locally. Make sure it's running at{' '}
+                  <code>http://localhost:11434</code> (or provide your custom URL in the API key field)
+                </p>
+              )}
             </div>
           )}
 
@@ -990,6 +997,11 @@ export function Settings() {
                   {selectedProviderName === 'openrouter' && (
                     <a href="https://openrouter.ai/models" target="_blank" rel="noopener noreferrer" className={styles.linkBtn}>
                       OpenRouter models
+                    </a>
+                  )}
+                  {selectedProviderName === 'ollama' && (
+                    <a href="https://ollama.ai/library" target="_blank" rel="noopener noreferrer" className={styles.linkBtn}>
+                      Ollama model library
                     </a>
                   )}
                 </p>
