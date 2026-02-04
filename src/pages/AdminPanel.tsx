@@ -89,6 +89,12 @@ export function AdminPanel() {
     () => api.listProjects()
   );
 
+  // Helper to get user display name
+  const getUserDisplayName = (userId: string): string => {
+    const foundUser = users?.find((u) => u.id === userId);
+    return foundUser?.display_name || foundUser?.email || userId;
+  };
+
   // Check if user is admin
   if (!user?.roles?.includes('admin')) {
     return (
@@ -628,7 +634,7 @@ export function AdminPanel() {
                     {groupMembers.map((member) => (
                       <div key={member.user_id} className={styles.item}>
                         <div className={styles.itemInfo}>
-                          <div className={styles.itemName}>{member.user_id}</div>
+                          <div className={styles.itemName}>{getUserDisplayName(member.user_id)}</div>
                         </div>
                         <button
                           className={`${styles.btnSmall} ${styles.danger}`}
