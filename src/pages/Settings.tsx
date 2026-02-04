@@ -5,7 +5,7 @@ import { api, API_BASE } from '../lib/api';
 import type { LLMProvider, LLMProviderCreateRequest, EmbeddingProvider, EmbeddingProviderCreateRequest, ClaudeCodeStatus } from '../lib/api';
 import { useAuth } from '../stores/auth';
 import { Modal } from '../components/ui';
-import { useToast } from '../components/Toast';
+import { useToast } from '../components/ToastContext';
 import styles from './Settings.module.css';
 
 export function Settings() {

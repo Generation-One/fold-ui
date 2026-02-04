@@ -102,11 +102,7 @@ export function ProjectDetail() {
       <div className={styles.tabContent}>
         {tab === 'repositories' && <RepositoryManager projectId={projectId!} />}
         {tab === 'members' && (
-          <ProjectMemberManager
-            projectId={projectId!}
-            projectName={project.name}
-            isModal={false}
-          />
+          <ProjectMemberManager projectId={projectId!} />
         )}
         {tab === 'settings' && <ProjectSettings projectId={projectId!} />}
       </div>

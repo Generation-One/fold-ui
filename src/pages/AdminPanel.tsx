@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import useSWR, { mutate } from 'swr';
 import { api } from '../lib/api';
-import { useToast } from '../components/Toast';
+import { useToast } from '../components/ToastContext';
 import { useAuth } from '../stores/auth';
 import { Modal } from '../components/ui';
 import styles from './AdminPanel.module.css';
@@ -343,8 +343,7 @@ export function AdminPanel() {
         </motion.div>
 
         {/* Modals for edit user page */}
-        <Modal isOpen={isCreateTokenOpen} onClose={() => setIsCreateTokenOpen(false)}>
-          <h2>Create API Key</h2>
+        <Modal isOpen={isCreateTokenOpen} onClose={() => setIsCreateTokenOpen(false)} title="Create API Key">
           <div className={styles.form}>
             <div className={styles.formGroup}>
               <label>Token Name *</label>
@@ -381,8 +380,7 @@ export function AdminPanel() {
           </div>
         </Modal>
 
-        <Modal isOpen={!!newToken} onClose={() => setNewToken(null)}>
-          <h2>API Key Created</h2>
+        <Modal isOpen={!!newToken} onClose={() => setNewToken(null)} title="API Key Created">
           <div className={styles.form}>
             <div className={styles.formGroup}>
               <label>Token Value (save this securely, you won't be able to see it again)</label>
@@ -637,8 +635,7 @@ export function AdminPanel() {
       )}
 
       {/* Modals */}
-      <Modal isOpen={isCreateUserOpen} onClose={() => setIsCreateUserOpen(false)}>
-        <h2>Create User</h2>
+      <Modal isOpen={isCreateUserOpen} onClose={() => setIsCreateUserOpen(false)} title="Create User">
         <div className={styles.form}>
           <div className={styles.formGroup}>
             <label>Email *</label>
@@ -680,8 +677,7 @@ export function AdminPanel() {
         </div>
       </Modal>
 
-      <Modal isOpen={isCreateGroupOpen} onClose={() => setIsCreateGroupOpen(false)}>
-        <h2>Create Group</h2>
+      <Modal isOpen={isCreateGroupOpen} onClose={() => setIsCreateGroupOpen(false)} title="Create Group">
         <div className={styles.form}>
           <div className={styles.formGroup}>
             <label>Group Name *</label>
@@ -714,8 +710,7 @@ export function AdminPanel() {
         </div>
       </Modal>
 
-      <Modal isOpen={isAddMemberOpen} onClose={() => setIsAddMemberOpen(false)}>
-        <h2>Add Member to Group</h2>
+      <Modal isOpen={isAddMemberOpen} onClose={() => setIsAddMemberOpen(false)} title="Add Member to Group">
         <div className={styles.form}>
           {users && users.length > 0 ? (
             <>

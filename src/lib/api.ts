@@ -855,17 +855,6 @@ class FoldApiClient {
       }),
     });
   }
-
-  // Public request method for generic API calls
-  async request<T = any>(method: string, endpoint: string, body?: any): Promise<T> {
-    const options: RequestInit = {
-      method,
-    };
-    if (body) {
-      options.body = JSON.stringify(body);
-    }
-    return this._fetch<T>(endpoint, options);
-  }
 }
 
 const apiClient = new FoldApiClient();

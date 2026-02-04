@@ -1,3 +1,4 @@
+import type { JSX } from 'react';
 import styles from './ui.module.css';
 import type { MemorySource } from '../../lib/api';
 
