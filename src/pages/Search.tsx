@@ -29,6 +29,8 @@ export function Search() {
   const [decayHalfLife, setDecayHalfLife] = useState(30);
   // Memory detail modal
   const [selectedResult, setSelectedResult] = useState<SearchResult | null>(null);
+  const [fullMemoryContext, setFullMemoryContext] = useState<any | null>(null);
+  const [loadingContext, setLoadingContext] = useState(false);
 
   // Projects are fetched by ProjectSelector, but we warm the cache here
   useSWR<Project[]>('projects', api.listProjects);
@@ -85,6 +87,27 @@ export function Search() {
       hour: '2-digit',
       minute: '2-digit',
     });
+  };
+
+  const handleSelectResult = async (result: SearchResult) => {
+    setSelectedResult(result);
+    setLoadingContext(true);
+    setFullMemoryContext(null);
+    try {
+      if (selectedProject) {
+        const context = await api.getMemoryContext(selectedProject, result.memory.id);
+        setFullMemoryContext(context);
+      }
+    } catch (err) {
+      console.error('Failed to fetch memory context:', err);
+    } finally {
+      setLoadingContext(false);
+    }
+  };
+
+  const handleCloseModal = () => {
+    setSelectedResult(null);
+    setFullMemoryContext(null);
   };
 
   const highlightQuery = (text: string | undefined, maxLength = 300) => {
@@ -288,7 +311,7 @@ export function Search() {
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.2, delay: index * 0.05 }}
-                onClick={() => setSelectedResult(result)}
+                onClick={() => handleSelectResult(result)}
                 style={{ cursor: 'pointer' }}
               >
                 <div className={styles.resultHeader}>
@@ -326,7 +349,7 @@ export function Search() {
                 </div>
 
                 <div className={styles.resultContent}>
-                  {highlightQuery(result.memory.context || result.content)}
+                  {highlightQuery(result.content)}
                 </div>
 
                 {result.memory.file_path && (
@@ -360,7 +383,7 @@ export function Search() {
       <Modal
         isOpen={selectedResult !== null}
         title="Memory Details"
-        onClose={() => setSelectedResult(null)}
+        onClose={handleCloseModal}
         wide
       >
         {selectedResult && (
@@ -376,12 +399,20 @@ export function Search() {
               <h3 className={styles.modalTitle}>{selectedResult.memory.title}</h3>
             )}
 
-            {/* Context */}
-            {selectedResult.memory.context && (
+            {/* Content */}
+            {loadingContext ? (
+              <div className={styles.modalContext}>
+                Loading full content...
+              </div>
+            ) : fullMemoryContext?.content ? (
+              <div className={styles.modalContext}>
+                {fullMemoryContext.content}
+              </div>
+            ) : selectedResult.memory.context ? (
               <div className={styles.modalContext}>
                 {selectedResult.memory.context}
               </div>
-            )}
+            ) : null}
 
             {/* File path */}
             {selectedResult.memory.file_path && (
