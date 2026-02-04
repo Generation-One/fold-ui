@@ -661,6 +661,10 @@ export function Settings() {
               </>
             ) : (
               <>
+                <p className={styles.providerHint}>
+                  Use high-quality embedders for indexing to ensure accurate semantic matching.
+                  For search, simpler or local embedders can reduce latency.
+                </p>
                 {embeddingProviders && embeddingProviders.length > 0 ? (
                   <div className={styles.providerList}>
                     {embeddingProviders.map((provider) => {

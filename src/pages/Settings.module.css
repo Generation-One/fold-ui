@@ -297,6 +297,17 @@
   padding: 1rem;
 }
 
+.providerHint {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  line-height: 1.5;
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--elevated);
+  border-radius: var(--radius-md);
+  border-left: 3px solid var(--holo-cyan);
+}
+
 /* Provider Items */
 .providerItem {
   display: flex;
