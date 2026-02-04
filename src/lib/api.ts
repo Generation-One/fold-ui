@@ -171,10 +171,9 @@ export interface MemoryLink {
 }
 
 export interface MemoryContext {
-  memory: Memory;
-  content: string;
-  related: Array<{ memory: Memory; content: string; link_type?: string }>;
-  depth: number;
+  memory: Memory & { content?: string };
+  related: Array<{ id: string; title?: string; content_preview: string; link_type: string; link_context?: string }>;
+  similar: Array<{ id: string; title?: string; content_preview: string; score: number }>;
 }
 
 export interface AuthProvider {

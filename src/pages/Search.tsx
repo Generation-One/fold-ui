@@ -404,9 +404,9 @@ export function Search() {
               <div className={styles.modalContext}>
                 Loading full content...
               </div>
-            ) : fullMemoryContext?.content ? (
+            ) : fullMemoryContext?.memory?.content ? (
               <div className={styles.modalContext}>
-                {fullMemoryContext.content}
+                {fullMemoryContext.memory.content}
               </div>
             ) : selectedResult.memory.context ? (
               <div className={styles.modalContext}>
