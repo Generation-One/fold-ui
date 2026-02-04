@@ -151,8 +151,6 @@ export function Settings() {
         const config: Record<string, any> = {};
         const model = formData.get('model') as string;
         if (model) config.model = model;
-        const dimension = formData.get('dimension') as string;
-        if (dimension) config.dimension = Number(dimension);
 
         const data: EmbeddingProviderCreateRequest = {
           name: formData.get('name') as 'gemini' | 'openai' | 'ollama',
@@ -664,7 +662,6 @@ export function Settings() {
                     {embeddingProviders.map((provider) => {
                       const displayName = provider.name.charAt(0).toUpperCase() + provider.name.slice(1);
                       const model = provider.config?.model as string | undefined;
-                      const dimension = provider.config?.dimension as number | undefined;
 
                       return (
                         <div key={provider.id} className={styles.providerItem}>
@@ -680,7 +677,6 @@ export function Settings() {
                                 <span className={styles.providerAuth}>API Key Set</span>
                               )}
                               {model && <span className={styles.providerModel}>{model}</span>}
-                              {dimension && <span className={styles.providerDimension}>Dim: {dimension}</span>}
                               <span className={styles.providerPriority}>Priority: {provider.priority}</span>
                             </div>
                           </div>
@@ -1006,19 +1002,6 @@ export function Settings() {
                   )}
                 </p>
               </div>
-
-              {providerTab === 'embedding' && (
-                <div className={styles.inputGroup}>
-                  <label className={styles.label}>Dimension (optional)</label>
-                  <input
-                    type="number"
-                    name="dimension"
-                    className={styles.input}
-                    placeholder="1536"
-                    defaultValue={editingProvider?.config?.dimension as number | undefined}
-                  />
-                </div>
-              )}
 
               <div className={styles.inputGroup}>
                 <label className={styles.label}>Priority</label>
