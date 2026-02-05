@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { HashRouter, Routes, Route } from 'react-router-dom';
 import { useEffect } from 'react';
 import { Layout } from './components/Layout';
 import { Dashboard } from './pages/Dashboard';
@@ -34,7 +34,7 @@ function App() {
   return (
     <ToastProvider>
       <SSEProvider>
-        <BrowserRouter>
+        <HashRouter>
           <Routes>
             <Route path="/" element={<Layout />}>
               <Route index element={<Dashboard />} />
@@ -49,7 +49,7 @@ function App() {
               <Route path="logs" element={<Logs />} />
             </Route>
           </Routes>
-        </BrowserRouter>
+        </HashRouter>
       </SSEProvider>
     </ToastProvider>
   );
