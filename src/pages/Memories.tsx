@@ -18,6 +18,49 @@ const SOURCE_LABELS: Record<MemorySource, string> = {
 };
 const ITEMS_PER_PAGE = 20;
 
+type SortField = 'created_at' | 'updated_at' | 'title';
+type SortDir = 'asc' | 'desc';
+
+const SORT_OPTIONS: { value: SortField; label: string }[] = [
+  { value: 'updated_at', label: 'Updated' },
+  { value: 'created_at', label: 'Created' },
+  { value: 'title', label: 'Title' },
+];
+
+// Preset date ranges
+type DatePreset = 'all' | 'today' | 'week' | 'month' | 'custom';
+const DATE_PRESETS: { value: DatePreset; label: string }[] = [
+  { value: 'all', label: 'All time' },
+  { value: 'today', label: 'Today' },
+  { value: 'week', label: 'Past week' },
+  { value: 'month', label: 'Past month' },
+  { value: 'custom', label: 'Custom' },
+];
+
+function getDatePresetRange(preset: DatePreset): { after?: string; before?: string } {
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  switch (preset) {
+    case 'today':
+      return { after: today.toISOString() };
+    case 'week': {
+      const weekAgo = new Date(today);
+      weekAgo.setDate(weekAgo.getDate() - 7);
+      return { after: weekAgo.toISOString() };
+    }
+    case 'month': {
+      const monthAgo = new Date(today);
+      monthAgo.setMonth(monthAgo.getMonth() - 1);
+      return { after: monthAgo.toISOString() };
+    }
+    case 'all':
+    case 'custom':
+    default:
+      return {};
+  }
+}
+
 export function Memories() {
   const { selectedProjectId } = useProject();
   const { user } = useAuth();
@@ -31,6 +74,14 @@ export function Memories() {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null);
+
+  // Date and sort filters
+  const [datePreset, setDatePreset] = useState<DatePreset>('all');
+  const [customDateAfter, setCustomDateAfter] = useState<string>('');
+  const [customDateBefore, setCustomDateBefore] = useState<string>('');
+  const [sortBy, setSortBy] = useState<SortField>('updated_at');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
+  const [showDateFilter, setShowDateFilter] = useState(false);
 
   // Sync tag filter from URL params
   useEffect(() => {
@@ -86,8 +137,25 @@ export function Memories() {
   // Projects are fetched by ProjectSelector, but we warm the cache here
   useSWR<Project[]>('projects', api.listProjects);
 
+  // Calculate date range based on preset or custom values
+  const getDateFilters = () => {
+    if (datePreset === 'custom') {
+      return {
+        created_after: customDateAfter || undefined,
+        created_before: customDateBefore || undefined,
+      };
+    }
+    const range = getDatePresetRange(datePreset);
+    return {
+      created_after: range.after,
+      created_before: range.before,
+    };
+  };
+
+  const dateFilters = getDateFilters();
+
   const memoriesKey = selectedProject
-    ? ['memories', selectedProject, selectedSource, selectedTags.join(','), currentPage]
+    ? ['memories', selectedProject, selectedSource, selectedTags.join(','), currentPage, datePreset, customDateAfter, customDateBefore, sortBy, sortDir]
     : null;
 
   const { data: memoriesData, isLoading } = useSWR(
@@ -96,6 +164,10 @@ export function Memories() {
       api.listMemories(selectedProject!, {
         source: selectedSource || undefined,
         tags: selectedTags.length > 0 ? selectedTags : undefined,
+        created_after: dateFilters.created_after,
+        created_before: dateFilters.created_before,
+        sort_by: sortBy,
+        sort_dir: sortDir,
         limit: ITEMS_PER_PAGE,
         offset: (currentPage - 1) * ITEMS_PER_PAGE,
       }),
@@ -241,6 +313,96 @@ export function Memories() {
               </div>
             </div>
           )}
+
+          {/* Date filter */}
+          <div className={styles.filterGroup}>
+            <span className={styles.filterLabel}>Date</span>
+            <div className={styles.dateFilterRow}>
+              <div className={styles.typeFilters}>
+                {DATE_PRESETS.map((preset) => (
+                  <button
+                    key={preset.value}
+                    className={`${styles.typeChip} ${datePreset === preset.value ? styles.active : ''}`}
+                    onClick={() => {
+                      setDatePreset(preset.value);
+                      if (preset.value !== 'custom') {
+                        setShowDateFilter(false);
+                      } else {
+                        setShowDateFilter(true);
+                      }
+                      setCurrentPage(1);
+                    }}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+              {showDateFilter && datePreset === 'custom' && (
+                <div className={styles.customDateInputs}>
+                  <input
+                    type="date"
+                    className={styles.dateInput}
+                    value={customDateAfter}
+                    onChange={(e) => {
+                      setCustomDateAfter(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    placeholder="From"
+                  />
+                  <span className={styles.dateSeparator}>to</span>
+                  <input
+                    type="date"
+                    className={styles.dateInput}
+                    value={customDateBefore}
+                    onChange={(e) => {
+                      setCustomDateBefore(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                    placeholder="To"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Sort */}
+          <div className={styles.filterGroup}>
+            <span className={styles.filterLabel}>Sort</span>
+            <div className={styles.sortControls}>
+              <select
+                className={styles.sortSelect}
+                value={sortBy}
+                onChange={(e) => {
+                  setSortBy(e.target.value as SortField);
+                  setCurrentPage(1);
+                }}
+              >
+                {SORT_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <button
+                className={styles.sortDirBtn}
+                onClick={() => {
+                  setSortDir(sortDir === 'desc' ? 'asc' : 'desc');
+                  setCurrentPage(1);
+                }}
+                title={sortDir === 'desc' ? 'Newest first' : 'Oldest first'}
+              >
+                {sortDir === 'desc' ? (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 5v14M19 12l-7 7-7-7" />
+                  </svg>
+                ) : (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M12 19V5M5 12l7-7 7 7" />
+                  </svg>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
