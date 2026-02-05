@@ -588,7 +588,19 @@ class FoldApiClient {
 
   async getMemories(
     projectId: string,
-    params: { source?: string; tag?: string; tags?: string[]; limit?: number; offset?: number } = {}
+    params: {
+      source?: string;
+      tag?: string;
+      tags?: string[];
+      created_after?: string;
+      created_before?: string;
+      updated_after?: string;
+      updated_before?: string;
+      sort_by?: 'created_at' | 'updated_at' | 'title';
+      sort_dir?: 'asc' | 'desc';
+      limit?: number;
+      offset?: number;
+    } = {}
   ): Promise<{ memories: Memory[]; total: number }> {
     const query = new URLSearchParams();
     if (params.source) query.set('source', params.source);
@@ -599,6 +611,15 @@ class FoldApiClient {
     } else if (params.tag) {
       query.set('tag', params.tag);
     }
+    // Date filters
+    if (params.created_after) query.set('created_after', params.created_after);
+    if (params.created_before) query.set('created_before', params.created_before);
+    if (params.updated_after) query.set('updated_after', params.updated_after);
+    if (params.updated_before) query.set('updated_before', params.updated_before);
+    // Sorting
+    if (params.sort_by) query.set('sort_by', params.sort_by);
+    if (params.sort_dir) query.set('sort_dir', params.sort_dir);
+    // Pagination
     if (params.limit) query.set('limit', String(params.limit));
     if (params.offset) query.set('offset', String(params.offset));
 
@@ -1029,7 +1050,19 @@ export const api = {
   // Memories
   listMemories: async (
     projectId: string,
-    params: { source?: string; tag?: string; tags?: string[]; limit?: number; offset?: number } = {}
+    params: {
+      source?: string;
+      tag?: string;
+      tags?: string[];
+      created_after?: string;
+      created_before?: string;
+      updated_after?: string;
+      updated_before?: string;
+      sort_by?: 'created_at' | 'updated_at' | 'title';
+      sort_dir?: 'asc' | 'desc';
+      limit?: number;
+      offset?: number;
+    } = {}
   ) => {
     return apiClient.getMemories(projectId, params);
   },
