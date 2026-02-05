@@ -343,32 +343,6 @@ function ProjectStatusPanel({ projectId }: { projectId: string }) {
 }
 
 function ProjectInfo({ project }: { project: Project }) {
-  const [syncing, setSyncing] = useState(false);
-  const [reindexing, setReindexing] = useState(false);
-
-  const handleSync = async () => {
-    setSyncing(true);
-    try {
-      await api.syncProject(project.id);
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to sync');
-    } finally {
-      setSyncing(false);
-    }
-  };
-
-  const handleReindex = async () => {
-    if (!confirm('Reindex will re-process all files. Continue?')) return;
-    setReindexing(true);
-    try {
-      await api.reindexProject(project.id);
-    } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to reindex');
-    } finally {
-      setReindexing(false);
-    }
-  };
-
   const isRemote = project.provider !== 'local';
 
   return (
@@ -412,36 +386,6 @@ function ProjectInfo({ project }: { project: Project }) {
         </div>
       )}
 
-      <div className={styles.infoSection}>
-        <h3 className={styles.sectionTitle}>Actions</h3>
-        <div className={styles.actions}>
-          {isRemote && (
-            <button
-              className={styles.actionBtn}
-              onClick={handleSync}
-              disabled={syncing}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M23 4v6h-6M1 20v-6h6" />
-                <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15" />
-              </svg>
-              {syncing ? 'Syncing...' : 'Sync from Remote'}
-            </button>
-          )}
-          <button
-            className={styles.actionBtn}
-            onClick={handleReindex}
-            disabled={reindexing}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <polyline points="1 4 1 10 7 10" />
-              <path d="M3.51 15a9 9 0 102.13-9.36L1 10" />
-            </svg>
-            {reindexing ? (isRemote ? 'Reindexing...' : 'Scanning...') : (isRemote ? 'Reindex' : 'Scan & Index')}
-          </button>
-        </div>
-      </div>
-
       {project.memory_count !== undefined && (
         <div className={styles.infoSection}>
           <h3 className={styles.sectionTitle}>Memories</h3>
@@ -452,15 +396,70 @@ function ProjectInfo({ project }: { project: Project }) {
   );
 }
 
+function AdvancedSettings({ projectId }: { projectId: string }) {
+  const navigate = useNavigate();
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!confirm('Are you sure you want to delete this project? This action cannot be undone.')) return;
+    if (!confirm('This will permanently delete all memories, chunks, and associated data. Type DELETE to confirm.')) return;
+
+    setDeleting(true);
+    try {
+      await api.deleteProject(projectId);
+      navigate('/projects');
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to delete project');
+      setDeleting(false);
+    }
+  };
+
+  return (
+    <div className={styles.advancedPanel}>
+      <div className={styles.dangerZone}>
+        <h3 className={styles.dangerTitle}>Danger Zone</h3>
+        <div className={styles.dangerCard}>
+          <div className={styles.dangerContent}>
+            <h4>Delete this project</h4>
+            <p>Once you delete a project, there is no going back. This will permanently delete all memories, chunks, links, and associated data.</p>
+          </div>
+          <button
+            className={styles.dangerBtn}
+            onClick={handleDelete}
+            disabled={deleting}
+          >
+            {deleting ? 'Deleting...' : 'Delete Project'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function ProjectDetail() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
-  const [tab, setTab] = useState<'info' | 'status' | 'settings' | 'members'>('info');
+  const [tab, setTab] = useState<'status' | 'info' | 'weights' | 'members' | 'advanced'>('status');
+  const [indexing, setIndexing] = useState(false);
 
   const { data: project, isLoading, error } = useSWR<Project>(
     projectId ? `project-${projectId}` : null,
     () => (projectId ? api.getProject(projectId) : Promise.reject())
   );
+
+  const handleIndex = async () => {
+    if (!project) return;
+    const isRemote = project.provider !== 'local';
+    if (!confirm(isRemote ? 'Reindex will re-process all files. Continue?' : 'Scan and index all files in this project?')) return;
+    setIndexing(true);
+    try {
+      await api.reindexProject(project.id);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to index');
+    } finally {
+      setIndexing(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -500,6 +499,19 @@ export function ProjectDetail() {
           <h1 className={styles.projectName}>{project.name}</h1>
           <p className={styles.projectSlug}>{project.slug}</p>
         </div>
+        <button
+          className={styles.headerActionBtn}
+          onClick={handleIndex}
+          disabled={indexing}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <polyline points="1 4 1 10 7 10" />
+            <path d="M3.51 15a9 9 0 102.13-9.36L1 10" />
+          </svg>
+          {indexing
+            ? (project.provider !== 'local' ? 'Reindexing...' : 'Scanning...')
+            : (project.provider !== 'local' ? 'Reindex' : 'Scan & Index')}
+        </button>
       </div>
 
       {project.description && (
@@ -509,6 +521,15 @@ export function ProjectDetail() {
       {/* Tabs */}
       <div className={styles.tabs}>
         <button
+          className={`${styles.tab} ${tab === 'status' ? styles.active : ''}`}
+          onClick={() => setTab('status')}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+          </svg>
+          Status
+        </button>
+        <button
           className={`${styles.tab} ${tab === 'info' ? styles.active : ''}`}
           onClick={() => setTab('info')}
         >
@@ -517,15 +538,6 @@ export function ProjectDetail() {
             <path d="M12 16v-4M12 8h.01" />
           </svg>
           Info
-        </button>
-        <button
-          className={`${styles.tab} ${tab === 'status' ? styles.active : ''}`}
-          onClick={() => setTab('status')}
-        >
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
-          </svg>
-          Status
         </button>
         <button
           className={`${styles.tab} ${tab === 'members' ? styles.active : ''}`}
@@ -540,25 +552,35 @@ export function ProjectDetail() {
           Members
         </button>
         <button
-          className={`${styles.tab} ${tab === 'settings' ? styles.active : ''}`}
-          onClick={() => setTab('settings')}
+          className={`${styles.tab} ${tab === 'weights' ? styles.active : ''}`}
+          onClick={() => setTab('weights')}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M12 3v18M3 12h18M5.5 5.5l13 13M18.5 5.5l-13 13" />
+          </svg>
+          Weights & Bias
+        </button>
+        <button
+          className={`${styles.tab} ${tab === 'advanced' ? styles.active : ''}`}
+          onClick={() => setTab('advanced')}
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
             <circle cx="12" cy="12" r="3" />
-            <path d="M12 1v6m0 6v6m8.66-13.66l-4.24 4.24M7.58 16.42l-4.24 4.24M23 12h-6m-6 0H1m20.66 8.66l-4.24-4.24M7.58 7.58L3.34 3.34" />
+            <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" />
           </svg>
-          Settings
+          Advanced
         </button>
       </div>
 
       {/* Tab Content */}
       <div className={styles.tabContent}>
-        {tab === 'info' && <ProjectInfo project={project} />}
         {tab === 'status' && <ProjectStatusPanel projectId={projectId!} />}
+        {tab === 'info' && <ProjectInfo project={project} />}
         {tab === 'members' && (
           <ProjectMemberManager projectId={projectId!} />
         )}
-        {tab === 'settings' && <ProjectSettings projectId={projectId!} />}
+        {tab === 'weights' && <ProjectSettings projectId={projectId!} />}
+        {tab === 'advanced' && <AdvancedSettings projectId={projectId!} />}
       </div>
     </motion.div>
   );
