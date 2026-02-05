@@ -33,6 +33,7 @@ export function MemoryDetailModal({
   const navigate = useNavigate();
   const [context, setContext] = useState<MemoryContext | null>(null);
   const [loading, setLoading] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [currentMemory, setCurrentMemory] = useState<Memory | null>(null);
 
   // Load memory context when memory changes
@@ -95,6 +96,29 @@ export function MemoryDetailModal({
   // otherwise fall back to currentMemory or the original prop
   const displayMemory = context?.memory || currentMemory || memory;
 
+  // Download the original source file
+  const handleDownload = async () => {
+    if (!projectId || !displayMemory?.id || !displayMemory?.file_path) return;
+
+    setDownloading(true);
+    try {
+      const { blob, filename } = await api.downloadSourceFile(projectId, displayMemory.id);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Failed to download source file:', err);
+      // Could add a toast notification here
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   if (!displayMemory) return null;
 
   // Get the title for the modal header
@@ -108,11 +132,19 @@ export function MemoryDetailModal({
           <div className={styles.headerLeft}>
             {displayMemory.file_path && (
               <div className={styles.filePath}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                  <polyline points="14 2 14 8 20 8" />
-                </svg>
-                <code>{displayMemory.file_path}</code>
+                <button
+                  className={styles.downloadButton}
+                  onClick={handleDownload}
+                  title="Download source file"
+                  disabled={downloading || !projectId}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                    <polyline points="7 10 12 15 17 10" />
+                    <line x1="12" y1="15" x2="12" y2="3" />
+                  </svg>
+                  <code>{displayMemory.file_path}</code>
+                </button>
                 {displayMemory.language && <span className={styles.language}>{displayMemory.language}</span>}
               </div>
             )}

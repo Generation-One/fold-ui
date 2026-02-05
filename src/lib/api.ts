@@ -564,6 +564,41 @@ class FoldApiClient {
     });
   }
 
+  /**
+   * Download the original source file for a memory.
+   * Returns a Blob that can be used to create a download link.
+   */
+  async downloadSourceFile(projectId: string, memoryId: string): Promise<{ blob: Blob; filename: string }> {
+    const headers: HeadersInit = {};
+    if (this.token) {
+      headers['Authorization'] = `Bearer ${this.token}`;
+    }
+
+    const response = await fetch(`${API_BASE}/projects/${projectId}/memories/${memoryId}/source`, {
+      headers,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({
+        message: response.statusText,
+      }));
+      throw new Error(error.message || 'Failed to download source file');
+    }
+
+    // Extract filename from Content-Disposition header
+    const contentDisposition = response.headers.get('Content-Disposition');
+    let filename = 'source';
+    if (contentDisposition) {
+      const match = contentDisposition.match(/filename="?([^"]+)"?/);
+      if (match) {
+        filename = match[1];
+      }
+    }
+
+    const blob = await response.blob();
+    return { blob, filename };
+  }
+
   async getMe(): Promise<{
     id: string;
     email: string;
@@ -898,6 +933,8 @@ export const api = {
   }) => apiClient.updateMemory(projectId, memoryId, data),
   getMemoryContext: (projectId: string, memoryId: string, depth?: number) =>
     apiClient.getMemoryContext(projectId, memoryId, depth),
+  downloadSourceFile: (projectId: string, memoryId: string) =>
+    apiClient.downloadSourceFile(projectId, memoryId),
 
   // Search
   searchMemories: async (
