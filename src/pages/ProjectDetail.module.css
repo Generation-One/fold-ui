@@ -76,6 +76,38 @@
   min-width: 0;
 }
 
+.headerActionBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.875rem;
+  background: var(--holo-cyan);
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--bg-primary);
+  cursor: pointer;
+  transition: all 0.2s var(--ease-out-expo);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.headerActionBtn:hover:not(:disabled) {
+  background: var(--holo-blue);
+  transform: translateY(-1px);
+}
+
+.headerActionBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.headerActionBtn svg {
+  width: 14px;
+  height: 14px;
+}
+
 .projectName {
   font-size: 1.25rem;
   font-weight: 700;
@@ -255,6 +287,84 @@
 .memoryCount {
   font-size: 0.9rem;
   color: var(--text-secondary);
+}
+
+/* Advanced Settings Panel */
+.advancedPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.dangerZone {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.dangerTitle {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--status-error);
+  margin: 0;
+}
+
+.dangerCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 1.25rem;
+  background: rgba(239, 68, 68, 0.05);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: var(--radius-lg);
+}
+
+.dangerContent {
+  flex: 1;
+}
+
+.dangerContent h4 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 0.375rem 0;
+}
+
+.dangerContent p {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.dangerBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1rem;
+  background: transparent;
+  border: 1px solid var(--status-error);
+  border-radius: var(--radius-md);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--status-error);
+  cursor: pointer;
+  transition: all 0.2s var(--ease-out-expo);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.dangerBtn:hover:not(:disabled) {
+  background: var(--status-error);
+  color: white;
+}
+
+.dangerBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* Status Panel */
