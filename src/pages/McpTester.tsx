@@ -22,7 +22,7 @@ interface McpToolProperty {
 interface McpTool {
   name: string;
   description?: string;
-  input_schema?: {
+  inputSchema?: {
     type: string;
     properties?: Record<string, McpToolProperty>;
     required?: string[];
@@ -265,7 +265,7 @@ curl -X POST ${DEFAULT_MCP_URL} \\
     // Pre-fill project slug if applicable
     const newParams: Record<string, string> = {};
     if (currentProject?.slug) {
-      const properties = tool.input_schema?.properties || {};
+      const properties = tool.inputSchema?.properties || {};
       // Look for parameters that might need the project slug
       for (const [name] of Object.entries(properties)) {
         if (name === 'project' || name === 'project_id' || name === 'project_slug' || name === 'slug') {
@@ -291,7 +291,7 @@ curl -X POST ${DEFAULT_MCP_URL} \\
     try {
       // Build arguments, parsing JSON for objects/arrays
       const args: Record<string, unknown> = {};
-      const properties = selectedTool.input_schema?.properties || {};
+      const properties = selectedTool.inputSchema?.properties || {};
 
       for (const [name, value] of Object.entries(params)) {
         if (value === '') continue;
@@ -614,18 +614,18 @@ curl -X POST ${DEFAULT_MCP_URL} \\
                 )}
 
                 <div className={styles.paramsForm}>
-                  {!selectedTool.input_schema?.properties || Object.keys(selectedTool.input_schema.properties).length === 0 ? (
+                  {!selectedTool.inputSchema?.properties || Object.keys(selectedTool.inputSchema.properties).length === 0 ? (
                     <p style={{ color: 'var(--text-tertiary)', fontSize: '0.85rem' }}>
                       This tool has no parameters.
                     </p>
                   ) : (
-                    Object.entries(selectedTool.input_schema.properties)
+                    Object.entries(selectedTool.inputSchema.properties)
                       .filter(([name]) => name !== 'source') // Hide source parameter
                       .map(([name, prop]) => (
                       <div key={name} className={styles.paramGroup}>
                         <label className={styles.paramLabel}>
                           <span className={styles.paramName}>{name}</span>
-                          {selectedTool.input_schema?.required?.includes(name) && (
+                          {selectedTool.inputSchema?.required?.includes(name) && (
                             <span className={styles.paramRequired}>required</span>
                           )}
                           <span className={styles.paramType}>{prop.type}</span>
