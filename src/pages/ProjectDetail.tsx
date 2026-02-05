@@ -3,10 +3,344 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import useSWR from 'swr';
 import { api } from '../lib/api';
-import type { Project } from '../lib/api';
+import type { Project, ProjectStatus } from '../lib/api';
 import { ProjectSettings } from '../components/ProjectSettings';
 import { ProjectMemberManager } from '../components/ProjectMemberManager';
 import styles from './ProjectDetail.module.css';
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+}
+
+function formatDuration(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+  return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
+}
+
+function formatTimeAgo(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+  if (seconds < 60) return 'just now';
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+  if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
+  return date.toLocaleDateString();
+}
+
+function ProjectStatusPanel({ projectId }: { projectId: string }) {
+  const { data: status, isLoading, error } = useSWR<ProjectStatus>(
+    `project-status-${projectId}`,
+    () => api.getProjectStatus(projectId),
+    { refreshInterval: 10000 }
+  );
+
+  if (isLoading) {
+    return (
+      <div className={styles.statusLoading}>
+        <div className={styles.spinner}></div>
+        <p>Loading status...</p>
+      </div>
+    );
+  }
+
+  if (error || !status) {
+    return (
+      <div className={styles.statusError}>
+        <p>Failed to load project status</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className={styles.statusPanel}>
+      <div className={styles.statusGrid}>
+      {/* Health Overview */}
+      <div className={styles.statusCard}>
+        <div className={styles.statusCardHeader}>
+          <h3 className={styles.statusCardTitle}>Health</h3>
+          <span className={`${styles.healthBadge} ${styles[status.health.status]}`}>
+            {status.health.status}
+          </span>
+        </div>
+        <div className={styles.statusCardBody}>
+          <div className={styles.healthChecks}>
+            <div className={styles.healthCheck}>
+              <span className={status.health.accessible ? styles.checkOk : styles.checkFail}>
+                {status.health.accessible ? '✓' : '✗'}
+              </span>
+              <span>Root path accessible</span>
+            </div>
+            <div className={styles.healthCheck}>
+              <span className={status.health.vector_collection_exists ? styles.checkOk : styles.checkFail}>
+                {status.health.vector_collection_exists ? '✓' : '✗'}
+              </span>
+              <span>Vector collection</span>
+            </div>
+            <div className={styles.healthCheck}>
+              <span className={!status.health.has_recent_failures ? styles.checkOk : styles.checkFail}>
+                {!status.health.has_recent_failures ? '✓' : '✗'}
+              </span>
+              <span>No recent failures</span>
+            </div>
+            {status.health.indexing_in_progress && (
+              <div className={styles.healthCheck}>
+                <span className={styles.checkProgress}>⟳</span>
+                <span>Indexing in progress</span>
+              </div>
+            )}
+          </div>
+          {status.health.issues.length > 0 && (
+            <div className={styles.healthIssues}>
+              {status.health.issues.map((issue, i) => (
+                <div key={i} className={styles.healthIssue}>
+                  <span className={styles.issueIcon}>⚠</span>
+                  {issue}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Database Stats */}
+      <div className={styles.statusCard}>
+        <div className={styles.statusCardHeader}>
+          <h3 className={styles.statusCardTitle}>Database</h3>
+        </div>
+        <div className={styles.statusCardBody}>
+        <div className={styles.statsGrid}>
+          <div className={styles.statItem}>
+            <span className={styles.statValue}>{status.database.total_memories}</span>
+            <span className={styles.statLabel}>Memories</span>
+          </div>
+          <div className={styles.statItem}>
+            <span className={styles.statValue}>{status.database.total_chunks}</span>
+            <span className={styles.statLabel}>Chunks</span>
+          </div>
+          <div className={styles.statItem}>
+            <span className={styles.statValue}>{status.database.total_links}</span>
+            <span className={styles.statLabel}>Links</span>
+          </div>
+          <div className={styles.statItem}>
+            <span className={styles.statValue}>{formatBytes(status.database.estimated_size_bytes)}</span>
+            <span className={styles.statLabel}>Est. Size</span>
+          </div>
+        </div>
+        <div className={styles.memoryBreakdown}>
+          <h4 className={styles.breakdownTitle}>By Type</h4>
+          <div className={styles.breakdownGrid}>
+            {Object.entries(status.database.memories_by_type).map(([type, count]) => (
+              count > 0 && (
+                <div key={type} className={styles.breakdownItem}>
+                  <span className={styles.breakdownLabel}>{type}</span>
+                  <span className={styles.breakdownValue}>{count}</span>
+                </div>
+              )
+            ))}
+          </div>
+          <h4 className={styles.breakdownTitle}>By Source</h4>
+          <div className={styles.breakdownGrid}>
+            {Object.entries(status.database.memories_by_source).map(([source, count]) => (
+              count > 0 && (
+                <div key={source} className={styles.breakdownItem}>
+                  <span className={styles.breakdownLabel}>{source}</span>
+                  <span className={styles.breakdownValue}>{count}</span>
+                </div>
+              )
+            ))}
+          </div>
+        </div>
+        </div>
+      </div>
+
+      {/* Vector DB Stats */}
+      <div className={styles.statusCard}>
+        <div className={styles.statusCardHeader}>
+          <h3 className={styles.statusCardTitle}>Vector Database</h3>
+        </div>
+        <div className={styles.statusCardBody}>
+        <div className={styles.statsGrid}>
+          <div className={styles.statItem}>
+            <span className={styles.statValue}>{status.vector_db.total_vectors}</span>
+            <span className={styles.statLabel}>Vectors</span>
+          </div>
+          <div className={styles.statItem}>
+            <span className={styles.statValue}>{status.vector_db.dimension}</span>
+            <span className={styles.statLabel}>Dimensions</span>
+          </div>
+          <div className={styles.statItem}>
+            <span className={status.vector_db.sync_status.in_sync ? styles.statValueOk : styles.statValueWarn}>
+              {status.vector_db.sync_status.in_sync ? 'Synced' : `${status.vector_db.sync_status.difference > 0 ? '+' : ''}${status.vector_db.sync_status.difference}`}
+            </span>
+            <span className={styles.statLabel}>Sync Status</span>
+          </div>
+        </div>
+        <div className={styles.collectionInfo}>
+          <code className={styles.collectionName}>{status.vector_db.collection_name}</code>
+        </div>
+        </div>
+      </div>
+
+      {/* Jobs Stats */}
+      <div className={styles.statusCard}>
+        <div className={styles.statusCardHeader}>
+          <h3 className={styles.statusCardTitle}>Jobs</h3>
+        </div>
+        <div className={styles.statusCardBody}>
+        <div className={styles.statsGrid}>
+          <div className={styles.statItem}>
+            <span className={styles.statValue}>{status.jobs.running}</span>
+            <span className={styles.statLabel}>Running</span>
+          </div>
+          <div className={styles.statItem}>
+            <span className={styles.statValue}>{status.jobs.pending}</span>
+            <span className={styles.statLabel}>Pending</span>
+          </div>
+          <div className={styles.statItem}>
+            <span className={styles.statValue}>{status.jobs.completed_24h}</span>
+            <span className={styles.statLabel}>Done (24h)</span>
+          </div>
+          <div className={styles.statItem}>
+            <span className={status.jobs.failed_24h === 0 ? styles.statValue : styles.statValueError}>
+              {status.jobs.failed_24h}
+            </span>
+            <span className={styles.statLabel}>Failed (24h)</span>
+          </div>
+        </div>
+        {status.recent_jobs.length > 0 && (
+          <div className={styles.recentJobs}>
+            <h4 className={styles.breakdownTitle}>Recent</h4>
+            {status.recent_jobs.slice(0, 5).map((job) => (
+              <div key={job.id} className={styles.recentJob}>
+                <span className={`${styles.jobStatus} ${styles[`job_${job.status}`]}`} />
+                <span className={styles.jobType}>{job.job_type.replace(/_/g, ' ')}</span>
+                <span className={styles.jobTime}>
+                  {job.completed_at ? formatTimeAgo(job.completed_at) : formatTimeAgo(job.created_at)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+        </div>
+      </div>
+
+      {/* Filesystem Stats */}
+      {status.filesystem && (
+        <div className={styles.statusCard}>
+          <div className={styles.statusCardHeader}>
+            <h3 className={styles.statusCardTitle}>Filesystem</h3>
+          </div>
+          <div className={styles.statusCardBody}>
+          <div className={styles.statsGrid}>
+            <div className={styles.statItem}>
+              <span className={status.filesystem.root_exists ? styles.statValueOk : styles.statValueError}>
+                {status.filesystem.root_exists ? 'Yes' : 'No'}
+              </span>
+              <span className={styles.statLabel}>Root Exists</span>
+            </div>
+            <div className={styles.statItem}>
+              <span className={status.filesystem.fold_dir_exists ? styles.statValueOk : styles.statValueWarn}>
+                {status.filesystem.fold_dir_exists ? 'Yes' : 'No'}
+              </span>
+              <span className={styles.statLabel}>fold/ Dir</span>
+            </div>
+            <div className={styles.statItem}>
+              <span className={styles.statValue}>~{status.filesystem.indexable_files_estimate}</span>
+              <span className={styles.statLabel}>Indexable Files</span>
+            </div>
+            <div className={styles.statItem}>
+              <span className={styles.statValue}>{formatBytes(status.filesystem.fold_dir_size_bytes)}</span>
+              <span className={styles.statLabel}>fold/ Size</span>
+            </div>
+          </div>
+          </div>
+        </div>
+      )}
+
+      {/* Indexing Status */}
+      <div className={styles.statusCard}>
+        <div className={styles.statusCardHeader}>
+          <h3 className={styles.statusCardTitle}>Indexing</h3>
+        </div>
+        <div className={styles.statusCardBody}>
+        {status.indexing.in_progress ? (
+          <div className={styles.indexingProgress}>
+            <div className={styles.progressBar}>
+              <div
+                className={styles.progressFill}
+                style={{ width: `${status.indexing.progress || 0}%` }}
+              />
+            </div>
+            <span className={styles.progressText}>
+              {status.indexing.progress !== undefined ? `${status.indexing.progress}%` : 'Processing...'}
+            </span>
+          </div>
+        ) : (
+          <div className={styles.indexingInfo}>
+            {status.indexing.last_indexed_at ? (
+              <>
+                <div className={styles.indexStat}>
+                  <span className={styles.indexLabel}>Last indexed</span>
+                  <span className={styles.indexValue}>{formatTimeAgo(status.indexing.last_indexed_at)}</span>
+                </div>
+                {status.indexing.last_duration_secs && (
+                  <div className={styles.indexStat}>
+                    <span className={styles.indexLabel}>Duration</span>
+                    <span className={styles.indexValue}>{formatDuration(status.indexing.last_duration_secs)}</span>
+                  </div>
+                )}
+              </>
+            ) : (
+              <span className={styles.neverIndexed}>Never indexed</span>
+            )}
+          </div>
+        )}
+        </div>
+      </div>
+
+      {/* Timestamps */}
+      <div className={styles.statusCard}>
+        <div className={styles.statusCardHeader}>
+          <h3 className={styles.statusCardTitle}>Timeline</h3>
+        </div>
+        <div className={styles.statusCardBody}>
+        <div className={styles.timeline}>
+          <div className={styles.timelineItem}>
+            <span className={styles.timelineLabel}>Created</span>
+            <span className={styles.timelineValue}>{new Date(status.timestamps.created_at).toLocaleString()}</span>
+          </div>
+          {status.timestamps.last_indexed_at && (
+            <div className={styles.timelineItem}>
+              <span className={styles.timelineLabel}>Last Indexed</span>
+              <span className={styles.timelineValue}>{formatTimeAgo(status.timestamps.last_indexed_at)}</span>
+            </div>
+          )}
+          {status.timestamps.last_memory_created_at && (
+            <div className={styles.timelineItem}>
+              <span className={styles.timelineLabel}>Last Memory</span>
+              <span className={styles.timelineValue}>{formatTimeAgo(status.timestamps.last_memory_created_at)}</span>
+            </div>
+          )}
+          {status.timestamps.last_job_completed_at && (
+            <div className={styles.timelineItem}>
+              <span className={styles.timelineLabel}>Last Job Done</span>
+              <span className={styles.timelineValue}>{formatTimeAgo(status.timestamps.last_job_completed_at)}</span>
+            </div>
+          )}
+        </div>
+        </div>
+      </div>
+      </div>
+    </div>
+  );
+}
 
 function ProjectInfo({ project }: { project: Project }) {
   const [syncing, setSyncing] = useState(false);
@@ -121,7 +455,7 @@ function ProjectInfo({ project }: { project: Project }) {
 export function ProjectDetail() {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
-  const [tab, setTab] = useState<'info' | 'settings' | 'members'>('info');
+  const [tab, setTab] = useState<'info' | 'status' | 'settings' | 'members'>('info');
 
   const { data: project, isLoading, error } = useSWR<Project>(
     projectId ? `project-${projectId}` : null,
@@ -185,6 +519,15 @@ export function ProjectDetail() {
           Info
         </button>
         <button
+          className={`${styles.tab} ${tab === 'status' ? styles.active : ''}`}
+          onClick={() => setTab('status')}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+          </svg>
+          Status
+        </button>
+        <button
           className={`${styles.tab} ${tab === 'members' ? styles.active : ''}`}
           onClick={() => setTab('members')}
         >
@@ -211,6 +554,7 @@ export function ProjectDetail() {
       {/* Tab Content */}
       <div className={styles.tabContent}>
         {tab === 'info' && <ProjectInfo project={project} />}
+        {tab === 'status' && <ProjectStatusPanel projectId={projectId!} />}
         {tab === 'members' && (
           <ProjectMemberManager projectId={projectId!} />
         )}
