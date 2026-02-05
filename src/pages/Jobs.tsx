@@ -197,7 +197,6 @@ export function Jobs() {
                   <div className={styles.jobMeta}>
                     <span className={styles.jobId}>#{job.id.slice(0, 8)}</span>
                     {job.project_id && <span>Project: {job.project_id.slice(0, 8)}</span>}
-                    {job.repository_id && <span>Repo: {job.repository_id.slice(0, 8)}</span>}
                   </div>
                   {job.processed_items !== undefined && (
                     <div className={styles.jobProgress}>

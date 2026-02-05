@@ -10,7 +10,9 @@ import { Jobs } from './pages/Jobs';
 import { McpTester } from './pages/McpTester';
 import { Settings } from './pages/Settings';
 import { AdminPanel } from './pages/AdminPanel';
+import { Logs } from './pages/Logs';
 import { ToastProvider } from './components/Toast';
+import { SSEProvider } from './components/SSEProvider';
 import { useAuth } from './stores/auth';
 import { api } from './lib/api';
 
@@ -31,21 +33,24 @@ function App() {
 
   return (
     <ToastProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Layout />}>
-            <Route index element={<Dashboard />} />
-            <Route path="search" element={<Search />} />
-            <Route path="projects" element={<Projects />} />
-            <Route path="projects/:projectId" element={<ProjectDetail />} />
-            <Route path="memories" element={<Memories />} />
-            <Route path="jobs" element={<Jobs />} />
-            <Route path="mcp" element={<McpTester />} />
-            <Route path="settings" element={<Settings />} />
-            <Route path="admin" element={<AdminPanel />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
+      <SSEProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Layout />}>
+              <Route index element={<Dashboard />} />
+              <Route path="search" element={<Search />} />
+              <Route path="projects" element={<Projects />} />
+              <Route path="projects/:projectId" element={<ProjectDetail />} />
+              <Route path="memories" element={<Memories />} />
+              <Route path="jobs" element={<Jobs />} />
+              <Route path="mcp" element={<McpTester />} />
+              <Route path="settings" element={<Settings />} />
+              <Route path="admin" element={<AdminPanel />} />
+              <Route path="logs" element={<Logs />} />
+            </Route>
+          </Routes>
+        </BrowserRouter>
+      </SSEProvider>
     </ToastProvider>
   );
 }
