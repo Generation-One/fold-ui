@@ -45,7 +45,6 @@ export interface Job {
   type: 'index_repo' | 'reindex_repo' | 'sync_metadata' | 'index_history' | string;
   status: 'pending' | 'running' | 'completed' | 'failed' | 'retry' | 'cancelled' | 'paused';
   project_id?: string;
-  repository_id?: string;
   priority?: number;
   processed_items?: number;
   total_items?: number;
@@ -70,9 +69,33 @@ export interface Project {
   slug: string;
   name: string;
   description?: string;
-  root_path?: string;
+  /** Provider type: 'local', 'github', or 'gitlab' */
+  provider: string;
+  /** Local path where the project root (and fold/) lives */
+  root_path: string;
+  /** Remote repository owner (for github/gitlab) */
+  remote_owner?: string;
+  /** Remote repository name (for github/gitlab) */
+  remote_repo?: string;
+  /** Remote branch (for github/gitlab) */
+  remote_branch?: string;
+  /** Author patterns to ignore during webhook processing */
+  ignored_commit_authors?: string[];
+  memory_count?: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface CreateProjectRequest {
+  slug: string;
+  name: string;
+  description?: string;
+  provider: string;
+  root_path: string;
+  remote_owner?: string;
+  remote_repo?: string;
+  remote_branch?: string;
+  access_token?: string;
 }
 
 export interface AlgorithmConfig {
@@ -80,61 +103,13 @@ export interface AlgorithmConfig {
   decay_half_life_days: number;  // min 1.0, default 30.0
 }
 
-export interface Repository {
-  id: string;
-  project_id: string;
-  provider: 'git-hub' | 'git-lab';
-  owner: string;
-  name: string;
-  full_name: string;
-  default_branch: string;
-  status: 'connected' | 'syncing' | 'error' | 'disconnected';
-  auto_index: boolean;
-  polling_enabled: boolean;
-  polling_interval_secs?: number;
-  /** Local filesystem path where the repository is cloned */
-  local_path?: string;
-  /** HEAD commit SHA of the local clone */
-  head_sha?: string;
-  last_indexed_at?: string;
-  last_polled_at?: string;
-  webhook_id?: string;
-  error_message?: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface RepositoryUpdateRequest {
-  auto_index?: boolean;
-  polling_enabled?: boolean;
-  polling_interval_secs?: number;
-}
-
-// URL-based repository creation (preferred)
-export interface RepositoryCreateByUrl {
-  url: string;
-  access_token: string;
-  auto_index?: boolean;
-}
-
-// Explicit field-based repository creation (backwards compatible)
-export interface RepositoryCreateByFields {
-  provider: 'git-hub' | 'git-lab';
-  owner: string;
-  name: string;
-  default_branch?: string;
-  access_token: string;
-  auto_index?: boolean;
-}
-
-export type RepositoryCreateRequest = RepositoryCreateByUrl | RepositoryCreateByFields;
+// Repository types removed - projects now directly include repository info via provider field
 
 export type MemorySource = 'file' | 'manual' | 'generated';
 
 export interface Memory {
   id: string;
   project_id: string;
-  repository_id?: string;
 
   // Content reference (actual content in fold/)
   content_hash?: string;
@@ -338,7 +313,6 @@ interface RawJob {
   job_type: string;
   status: 'pending' | 'running' | 'completed' | 'failed' | 'retry' | 'cancelled';
   project_id?: string;
-  repository_id?: string;
   total_items?: number;
   processed_items?: number;
   failed_items?: number;
@@ -452,7 +426,7 @@ class FoldApiClient {
     return this._fetch<Project>(`/projects/${id}`);
   }
 
-  async createProject(data: Partial<Project>): Promise<Project> {
+  async createProject(data: CreateProjectRequest): Promise<Project> {
     return this._fetch<Project>('/projects', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -484,45 +458,19 @@ class FoldApiClient {
     });
   }
 
-  async listRepositories(projectId: string): Promise<Repository[]> {
-    const result = await this.request<{ repositories: Repository[] } | Repository[]>('GET', `/projects/${projectId}/repositories`);
-    // Handle both array and object response formats
-    return Array.isArray(result) ? result : (result.repositories || []);
-  }
+  // Repository methods removed - projects now include repository info directly
 
-  async getRepository(projectId: string, repoId: string): Promise<Repository> {
-    return this._fetch<Repository>(`/projects/${projectId}/repositories/${repoId}`);
-  }
-
-  async createRepository(projectId: string, data: RepositoryCreateRequest): Promise<Repository> {
-    return this._fetch<Repository>(`/projects/${projectId}/repositories`, {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  }
-
-  async deleteRepository(projectId: string, repoId: string): Promise<void> {
-    return this._fetch<void>(`/projects/${projectId}/repositories/${repoId}`, {
-      method: 'DELETE',
-    });
-  }
-
-  async reindexRepository(projectId: string, repoId: string): Promise<void> {
-    return this._fetch<void>(`/projects/${projectId}/repositories/${repoId}/reindex`, {
+  /** Trigger a reindex of the project's codebase */
+  async reindexProject(projectId: string): Promise<void> {
+    return this._fetch<void>(`/projects/${projectId}/reindex`, {
       method: 'POST',
     });
   }
 
-  async syncRepository(projectId: string, repoId: string): Promise<void> {
-    return this._fetch<void>(`/projects/${projectId}/repositories/${repoId}/sync`, {
+  /** Trigger a sync of the project's metadata from remote */
+  async syncProject(projectId: string): Promise<void> {
+    return this._fetch<void>(`/projects/${projectId}/sync`, {
       method: 'POST',
-    });
-  }
-
-  async updateRepository(projectId: string, repoId: string, data: RepositoryUpdateRequest): Promise<Repository> {
-    return this._fetch<Repository>(`/projects/${projectId}/repositories/${repoId}`, {
-      method: 'PATCH',
-      body: JSON.stringify(data),
     });
   }
 
@@ -917,7 +865,7 @@ export const api = {
     return result.projects;
   },
   getProject: (id: string) => apiClient.getProject(id),
-  createProject: (data: Partial<Project>) => apiClient.createProject(data),
+  createProject: (data: CreateProjectRequest) => apiClient.createProject(data),
   updateProject: (id: string, data: Partial<Project>) => apiClient.updateProject(id, data),
   deleteProject: (id: string) => apiClient.deleteProject(id),
 
@@ -926,21 +874,14 @@ export const api = {
   updateAlgorithmConfig: (projectId: string, config: Partial<AlgorithmConfig>) =>
     apiClient.updateAlgorithmConfig(projectId, config),
 
-  // Repositories
-  listRepositories: (projectId: string) => apiClient.listRepositories(projectId),
-  getRepository: (projectId: string, repoId: string) => apiClient.getRepository(projectId, repoId),
-  createRepository: (projectId: string, data: RepositoryCreateRequest) =>
-    apiClient.createRepository(projectId, data),
-  deleteRepository: (projectId: string, repoId: string) => apiClient.deleteRepository(projectId, repoId),
-  reindexRepository: (projectId: string, repoId: string) => apiClient.reindexRepository(projectId, repoId),
-  syncRepository: (projectId: string, repoId: string) => apiClient.syncRepository(projectId, repoId),
-  updateRepository: (projectId: string, repoId: string, data: RepositoryUpdateRequest) =>
-    apiClient.updateRepository(projectId, repoId, data),
+  // Project actions (reindex, sync)
+  reindexProject: (projectId: string) => apiClient.reindexProject(projectId),
+  syncProject: (projectId: string) => apiClient.syncProject(projectId),
 
   // Memories
   listMemories: async (
     projectId: string,
-    params: { source?: string; tag?: string; limit?: number; offset?: number } = {}
+    params: { source?: string; tag?: string; tags?: string[]; limit?: number; offset?: number } = {}
   ) => {
     return apiClient.getMemories(projectId, params);
   },
@@ -1029,7 +970,6 @@ export const api = {
       type: j.job_type,
       status: j.status,
       project_id: j.project_id,
-      repository_id: j.repository_id,
       priority: j.priority,
       processed_items: j.processed_items,
       total_items: j.total_items,
@@ -1052,7 +992,6 @@ export const api = {
         type: j.job_type,
         status: j.status,
         project_id: j.project_id,
-        repository_id: j.repository_id,
         priority: j.priority,
         processed_items: j.processed_items,
         total_items: j.total_items,
@@ -1076,7 +1015,6 @@ export const api = {
       type: j.job_type,
       status: j.status,
       project_id: j.project_id,
-      repository_id: j.repository_id,
       priority: j.priority,
       processed_items: j.processed_items,
       total_items: j.total_items,

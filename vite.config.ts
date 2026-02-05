@@ -13,6 +13,11 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
       },
+      // Proxy auth routes so cookies are set on the same origin
+      '/auth': {
+        target: 'http://localhost:8765',
+        changeOrigin: true,
+      },
     },
   },
 });
