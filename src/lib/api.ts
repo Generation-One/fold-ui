@@ -103,6 +103,112 @@ export interface AlgorithmConfig {
   decay_half_life_days: number;  // min 1.0, default 30.0
 }
 
+// Project Status Types
+export interface ProjectStatus {
+  project: {
+    id: string;
+    slug: string;
+    name: string;
+    description?: string;
+    provider: string;
+    root_path?: string;
+    remote_owner?: string;
+    remote_repo?: string;
+    remote_branch?: string;
+  };
+  health: {
+    status: 'healthy' | 'degraded' | 'unhealthy';
+    accessible: boolean;
+    vector_collection_exists: boolean;
+    has_recent_failures: boolean;
+    indexing_in_progress: boolean;
+    issues: string[];
+  };
+  database: {
+    total_memories: number;
+    memories_by_type: {
+      codebase: number;
+      session: number;
+      decision: number;
+      spec: number;
+      commit: number;
+      pr: number;
+      task: number;
+      general: number;
+    };
+    memories_by_source: {
+      file: number;
+      agent: number;
+      git: number;
+    };
+    total_chunks: number;
+    total_links: number;
+    total_attachments: number;
+    estimated_size_bytes: number;
+  };
+  vector_db: {
+    collection_name: string;
+    exists: boolean;
+    total_vectors: number;
+    dimension: number;
+    sync_status: {
+      memory_count: number;
+      vector_count: number;
+      in_sync: boolean;
+      difference: number;
+    };
+  };
+  jobs: {
+    total: number;
+    pending: number;
+    running: number;
+    completed: number;
+    failed: number;
+    paused: number;
+    completed_24h: number;
+    failed_24h: number;
+    by_type: {
+      index_repo: number;
+      reindex_repo: number;
+      index_history: number;
+      sync_metadata: number;
+      process_webhook: number;
+      generate_summary: number;
+      custom: number;
+    };
+  };
+  recent_jobs: Array<{
+    id: string;
+    job_type: string;
+    status: string;
+    progress?: number;
+    created_at: string;
+    completed_at?: string;
+    error?: string;
+  }>;
+  filesystem?: {
+    root_exists: boolean;
+    fold_dir_exists: boolean;
+    indexable_files_estimate: number;
+    fold_dir_size_bytes: number;
+  };
+  indexing: {
+    in_progress: boolean;
+    current_job_id?: string;
+    progress?: number;
+    last_indexed_at?: string;
+    last_duration_secs?: number;
+  };
+  timestamps: {
+    created_at: string;
+    updated_at: string;
+    last_indexed_at?: string;
+    last_job_completed_at?: string;
+    last_job_failed_at?: string;
+    last_memory_created_at?: string;
+  };
+}
+
 // Repository types removed - projects now directly include repository info via provider field
 
 export type MemorySource = 'file' | 'manual' | 'generated';
@@ -424,6 +530,10 @@ class FoldApiClient {
 
   async getProject(id: string): Promise<Project> {
     return this._fetch<Project>(`/projects/${id}`);
+  }
+
+  async getProjectStatus(id: string): Promise<ProjectStatus> {
+    return this._fetch<ProjectStatus>(`/projects/${id}/status`);
   }
 
   async createProject(data: CreateProjectRequest): Promise<Project> {
@@ -900,6 +1010,7 @@ export const api = {
     return result.projects;
   },
   getProject: (id: string) => apiClient.getProject(id),
+  getProjectStatus: (id: string) => apiClient.getProjectStatus(id),
   createProject: (data: CreateProjectRequest) => apiClient.createProject(data),
   updateProject: (id: string, data: Partial<Project>) => apiClient.updateProject(id, data),
   deleteProject: (id: string) => apiClient.deleteProject(id),
