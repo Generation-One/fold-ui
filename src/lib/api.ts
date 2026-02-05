@@ -150,9 +150,11 @@ export interface ProjectStatus {
     collection_name: string;
     exists: boolean;
     total_vectors: number;
+    memory_vectors: number;
+    chunk_vectors: number;
     dimension: number;
     sync_status: {
-      memory_count: number;
+      expected_count: number;
       vector_count: number;
       in_sync: boolean;
       difference: number;

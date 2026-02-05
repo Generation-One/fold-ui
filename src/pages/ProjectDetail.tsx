@@ -386,12 +386,6 @@ function ProjectInfo({ project }: { project: Project }) {
         </div>
       )}
 
-      {project.memory_count !== undefined && (
-        <div className={styles.infoSection}>
-          <h3 className={styles.sectionTitle}>Memories</h3>
-          <span className={styles.memoryCount}>{project.memory_count} memories stored</span>
-        </div>
-      )}
     </div>
   );
 }
