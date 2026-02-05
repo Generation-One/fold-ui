@@ -238,6 +238,20 @@
   color: var(--text-secondary);
 }
 
+.labelHint {
+  font-size: 0.65rem;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-tertiary);
+  font-weight: 400;
+}
+
+.fieldHint {
+  font-size: 0.7rem;
+  color: var(--text-tertiary);
+  margin-top: -0.25rem;
+}
+
 .input,
 .textarea,
 .select {

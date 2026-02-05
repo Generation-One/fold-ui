@@ -114,11 +114,13 @@ export function Memories() {
 
     const formData = new FormData(e.currentTarget);
     const tagsInput = formData.get('tags') as string;
+    const slugInput = formData.get('slug') as string;
     const data = {
       title: formData.get('title') as string || undefined,
       content: formData.get('content') as string || '',
       source: 'manual' as MemorySource,
       tags: tagsInput ? tagsInput.split(',').map((t) => t.trim()).filter(Boolean) : undefined,
+      slug: slugInput?.trim() || undefined,
       author: 'ui',
     };
 
@@ -417,6 +419,22 @@ export function Memories() {
               className={styles.input}
               placeholder="tag1, tag2, tag3 (comma-separated)"
             />
+          </div>
+
+          <div className={styles.formGroup}>
+            <label className={styles.label} htmlFor="slug">
+              Slug <span className={styles.labelHint}>(optional)</span>
+            </label>
+            <input
+              type="text"
+              id="slug"
+              name="slug"
+              className={styles.input}
+              placeholder="custom-slug (auto-generated from title if empty)"
+            />
+            <span className={styles.fieldHint}>
+              Used for the file path in fold/ directory
+            </span>
           </div>
         </form>
       </Modal>
