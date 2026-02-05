@@ -30,24 +30,27 @@ A holographic memory system interface for the [Fold](https://github.com/Generati
 
 - A running [Fold server](https://github.com/Generation-One/fold) instance
 
-### Option A: Docker (Recommended)
+### Option A: Pre-built Image (Recommended)
+
+Pre-built images are available from GitHub Container Registry. This is the fastest way to get started.
 
 ```bash
-# Clone and run
-git clone https://github.com/Generation-One/fold-ui.git
-cd fold-ui
-
-# Build and start with your API URL
-docker compose up -d --build
+docker pull ghcr.io/generation-one/fold-ui:latest
 ```
 
-Configure the API URL via environment variable:
+Run with your Fold API URL:
+
+```bash
+docker run -d -p 80:80 -e VITE_API_URL=https://your-fold-server.com ghcr.io/generation-one/fold-ui:latest
+```
+
+Or use docker-compose:
 
 ```yaml
 # docker-compose.yml
 services:
   fold-ui:
-    build: .
+    image: ghcr.io/generation-one/fold-ui:latest
     ports:
       - "80:80"
     environment:
@@ -55,6 +58,14 @@ services:
 ```
 
 The `VITE_API_URL` is configured at container startup (runtime), so you can change it without rebuilding the image.
+
+### Option B: Build from Source
+
+```bash
+git clone https://github.com/Generation-One/fold-ui.git
+cd fold-ui
+docker compose up -d --build
+```
 
 ### Option B: Local Development
 
