@@ -140,9 +140,16 @@ export function Memories() {
   // Calculate date range based on preset or custom values
   const getDateFilters = () => {
     if (datePreset === 'custom') {
+      // Add one day to created_before so "before 2024-02-05" includes all of 2024-02-05
+      let adjustedBefore: string | undefined;
+      if (customDateBefore) {
+        const beforeDate = new Date(customDateBefore);
+        beforeDate.setDate(beforeDate.getDate() + 1);
+        adjustedBefore = beforeDate.toISOString().split('T')[0];
+      }
       return {
         created_after: customDateAfter || undefined,
-        created_before: customDateBefore || undefined,
+        created_before: adjustedBefore,
       };
     }
     const range = getDatePresetRange(datePreset);
@@ -339,27 +346,43 @@ export function Memories() {
               </div>
               {showDateFilter && datePreset === 'custom' && (
                 <div className={styles.customDateInputs}>
-                  <input
-                    type="date"
-                    className={styles.dateInput}
-                    value={customDateAfter}
-                    onChange={(e) => {
-                      setCustomDateAfter(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                    placeholder="From"
-                  />
+                  <div className={styles.dateInputWrapper}>
+                    <input
+                      type="date"
+                      className={styles.dateInput}
+                      value={customDateAfter}
+                      onChange={(e) => {
+                        setCustomDateAfter(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                      placeholder="From"
+                    />
+                    <svg className={styles.dateInputIcon} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                      <line x1="16" y1="2" x2="16" y2="6" />
+                      <line x1="8" y1="2" x2="8" y2="6" />
+                      <line x1="3" y1="10" x2="21" y2="10" />
+                    </svg>
+                  </div>
                   <span className={styles.dateSeparator}>to</span>
-                  <input
-                    type="date"
-                    className={styles.dateInput}
-                    value={customDateBefore}
-                    onChange={(e) => {
-                      setCustomDateBefore(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                    placeholder="To"
-                  />
+                  <div className={styles.dateInputWrapper}>
+                    <input
+                      type="date"
+                      className={styles.dateInput}
+                      value={customDateBefore}
+                      onChange={(e) => {
+                        setCustomDateBefore(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                      placeholder="To"
+                    />
+                    <svg className={styles.dateInputIcon} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                      <line x1="16" y1="2" x2="16" y2="6" />
+                      <line x1="8" y1="2" x2="8" y2="6" />
+                      <line x1="3" y1="10" x2="21" y2="10" />
+                    </svg>
+                  </div>
                 </div>
               )}
             </div>
