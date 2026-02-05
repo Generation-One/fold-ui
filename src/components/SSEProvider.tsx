@@ -5,9 +5,13 @@
  * - Job completions and failures
  * - Provider availability changes
  * - Health status changes
+ *
+ * Also triggers SWR cache refreshes when health status changes,
+ * ensuring the sidebar and other components show fresh data.
  */
 
-import { type ReactNode } from 'react';
+import { type ReactNode, useRef } from 'react';
+import { useSWRConfig } from 'swr';
 import {
   useSSE,
   type JobEvent,
@@ -38,6 +42,18 @@ function formatJobType(jobType: string): string {
 export function SSEProvider({ children }: SSEProviderProps) {
   const { showToast } = useToast();
   const { token } = useAuth();
+  const { mutate } = useSWRConfig();
+
+  // Track the previous health status to detect transitions
+  const prevHealthStatus = useRef<string | null>(null);
+
+  /** Refresh sidebar-related SWR caches */
+  const refreshSidebarData = () => {
+    // Revalidate projects list (for ProjectSelector)
+    mutate('projects');
+    // Revalidate jobs (for job count badge)
+    mutate('jobs');
+  };
 
   useSSE({
     enabled: !!token,
@@ -71,14 +87,31 @@ export function SSEProvider({ children }: SSEProviderProps) {
     onProviderUnavailable: (event: ProviderEvent) => {
       const providerType = event.provider_type.toUpperCase();
       showToast(`${providerType} provider unavailable - jobs may be paused`, 'error');
+      // Refresh sidebar data when providers go offline
+      refreshSidebarData();
     },
 
     onProviderAvailable: (event: ProviderEvent) => {
       const providerType = event.provider_type.toUpperCase();
       showToast(`${providerType} provider restored - resuming jobs`, 'success');
+      // Refresh sidebar data when providers come back online
+      refreshSidebarData();
     },
 
     onHealthChanged: (event: HealthEvent) => {
+      const wasOffline = prevHealthStatus.current === 'unhealthy' || prevHealthStatus.current === 'degraded';
+      const isNowOnline = event.status === 'healthy';
+      const wasOnline = prevHealthStatus.current === 'healthy';
+      const isNowOffline = event.status === 'unhealthy' || event.status === 'degraded';
+
+      // Refresh sidebar data when transitioning between online/offline states
+      if ((wasOffline && isNowOnline) || (wasOnline && isNowOffline)) {
+        refreshSidebarData();
+      }
+
+      // Update the previous status for next comparison
+      prevHealthStatus.current = event.status;
+
       if (event.status === 'unhealthy') {
         const msg = event.message || 'System experiencing issues';
         const component = event.component ? `${event.component}: ` : '';

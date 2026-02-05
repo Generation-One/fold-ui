@@ -1,7 +1,7 @@
-import type { ReactNode } from 'react';
+import { type ReactNode, useEffect, useRef } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import useSWR from 'swr';
+import useSWR, { useSWRConfig } from 'swr';
 import { api } from '../lib/api';
 import { useAuth } from '../stores/auth';
 import { useProject } from '../stores/project';
@@ -118,6 +118,11 @@ export function Layout() {
   const location = useLocation();
   const { isAuthenticated, clearAuth, user } = useAuth();
   const { selectedProjectId, selectProject } = useProject();
+  const { mutate } = useSWRConfig();
+
+  // Track previous auth and status states to detect transitions
+  const prevAuthRef = useRef<boolean | null>(null);
+  const prevStatusRef = useRef<boolean | null>(null);
 
   const { data: status, error: statusError } = useSWR(
     'status',
@@ -137,6 +142,27 @@ export function Layout() {
   const jobCount = jobs?.filter(
     (j) => j.status === 'pending' || j.status === 'running'
   ).length || 0;
+
+  // Refresh sidebar data when auth or system status changes
+  useEffect(() => {
+    const wasAuthenticated = prevAuthRef.current;
+    const wasOnline = prevStatusRef.current;
+
+    // Detect auth state transition
+    const authChanged = wasAuthenticated !== null && wasAuthenticated !== isAuthenticated;
+    // Detect system status transition (offline <-> online)
+    const statusChanged = wasOnline !== null && wasOnline !== !isSystemOffline;
+
+    if (authChanged || statusChanged) {
+      // Revalidate sidebar-related caches
+      mutate('projects');
+      mutate('jobs');
+    }
+
+    // Update refs for next comparison
+    prevAuthRef.current = isAuthenticated;
+    prevStatusRef.current = !isSystemOffline;
+  }, [isAuthenticated, isSystemOffline, mutate]);
 
   return (
     <div className={styles.app}>
