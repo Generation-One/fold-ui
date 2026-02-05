@@ -28,16 +28,41 @@ A holographic memory system interface for the [Fold](https://github.com/Generati
 
 ### Prerequisites
 
-- Node.js 18+
 - A running [Fold server](https://github.com/Generation-One/fold) instance
 
-### Installation
+### Option A: Docker (Recommended)
+
+```bash
+# Clone and run
+git clone https://github.com/Generation-One/fold-ui.git
+cd fold-ui
+
+# Build and start with your API URL
+docker compose up -d --build
+```
+
+Configure the API URL via environment variable:
+
+```yaml
+# docker-compose.yml
+services:
+  fold-ui:
+    build: .
+    ports:
+      - "80:80"
+    environment:
+      - VITE_API_URL=https://your-fold-server.com
+```
+
+The `VITE_API_URL` is configured at container startup (runtime), so you can change it without rebuilding the image.
+
+### Option B: Local Development
+
+Prerequisites: Node.js 18+
 
 ```bash
 npm install
 ```
-
-### Configuration
 
 Copy the example environment file:
 
@@ -51,7 +76,7 @@ Edit `.env` to point to your Fold server:
 VITE_API_URL=http://localhost:8765
 ```
 
-### Development
+Start development server:
 
 ```bash
 npm run dev
