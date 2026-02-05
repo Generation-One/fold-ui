@@ -215,6 +215,15 @@
   border-radius: var(--radius-sm);
 }
 
+.source {
+  font-size: 0.7rem;
+  padding: 0.2rem 0.5rem;
+  background: rgba(0, 212, 255, 0.1);
+  color: var(--holo-cyan);
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+}
+
 /* Scores */
 .scores {
   display: flex;

@@ -103,7 +103,7 @@ export function MemoryDetailModal({
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={modalTitle} wide>
       <div className={styles.content}>
-        {/* Header row - file path and date */}
+        {/* Header row - file path, source, and date */}
         <div className={styles.headerRow}>
           <div className={styles.headerLeft}>
             {displayMemory.file_path && (
@@ -115,6 +115,9 @@ export function MemoryDetailModal({
                 <code>{displayMemory.file_path}</code>
                 {displayMemory.language && <span className={styles.language}>{displayMemory.language}</span>}
               </div>
+            )}
+            {displayMemory.source && (
+              <span className={styles.source}>{displayMemory.source}</span>
             )}
           </div>
           <span className={styles.date}>{formatDate(displayMemory.created_at)}</span>
