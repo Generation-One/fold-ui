@@ -1,10 +1,10 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import useSWR, { mutate } from 'swr';
 import { api, API_BASE } from '../lib/api';
 import { useProject } from '../stores/project';
-import type { Project, CreateProjectRequest, ConnectedAccount } from '../lib/api';
+import type { Project, CreateProjectRequest, ConnectedAccount, GitHubRepo, GitHubBranch, AuthProvider } from '../lib/api';
 import { Modal, EmptyState } from '../components/ui';
 import styles from './Projects.module.css';
 
@@ -14,7 +14,11 @@ export function Projects() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Step 1: Provider
   const [provider, setProvider] = useState<string>('local');
+
+  // Step 2: Auth
   const [authMethod, setAuthMethod] = useState<'account' | 'token'>('account');
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
   const [connections, setConnections] = useState<ConnectedAccount[]>([]);
@@ -22,6 +26,26 @@ export function Projects() {
   const [pollingForConnection, setPollingForConnection] = useState(false);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const connectionsCountRef = useRef(0);
+  const connectionsSnapshotRef = useRef('');
+  const [manualToken, setManualToken] = useState('');
+  const [authProviders, setAuthProviders] = useState<AuthProvider[]>([]);
+  const [repoFetchKey, setRepoFetchKey] = useState(0);
+
+  // Step 3: Repository
+  const [repos, setRepos] = useState<GitHubRepo[]>([]);
+  const [loadingRepos, setLoadingRepos] = useState(false);
+  const [repoSearch, setRepoSearch] = useState('');
+  const [selectedRepo, setSelectedRepo] = useState<GitHubRepo | null>(null);
+
+  // Step 4: Branch
+  const [branches, setBranches] = useState<GitHubBranch[]>([]);
+  const [loadingBranches, setLoadingBranches] = useState(false);
+  const [selectedBranch, setSelectedBranch] = useState<string>('');
+
+  // Step 5: Project details
+  const [projectName, setProjectName] = useState('');
+  const [projectSlug, setProjectSlug] = useState('');
+  const [projectDescription, setProjectDescription] = useState('');
 
   /** Build the connect URL with the auth token as a query param. */
   const connectUrl = (prov: string) => {
@@ -34,7 +58,17 @@ export function Projects() {
     refreshInterval: 10000,
   });
 
-  /** Fetch connections for the current provider and update state. */
+  // Determine if auth is resolved (user has selected an account or entered a manual token)
+  const authResolved = provider === 'local' || (
+    authMethod === 'account' ? !!selectedAccountId : !!manualToken
+  );
+
+  // Determine if repo is selected (for remote providers)
+  // For account auth: requires selectedRepo from the picker
+  // For manual token: always resolved (owner/repo are required form fields)
+  const repoResolved = provider === 'local' || authMethod === 'token' || !!selectedRepo;
+
+  /** Fetch connections for the current provider. */
   const fetchConnections = useCallback(() => {
     return api.getConnections()
       .then((res) => {
@@ -51,21 +85,26 @@ export function Projects() {
       });
   }, [provider, selectedAccountId]);
 
-  // Fetch connected accounts when the modal opens with a remote provider
+  // Fetch connected accounts and auth providers when modal opens with a remote provider
   useEffect(() => {
     if (isCreateOpen && provider !== 'local') {
       setLoadingConnections(true);
       fetchConnections().finally(() => setLoadingConnections(false));
+      api.getAuthProviders()
+        .then((res) => setAuthProviders(res.providers))
+        .catch(() => {});
     }
   }, [isCreateOpen, provider]);
 
-  /** Called when user clicks a connect link -- starts polling for new accounts. */
+  /** Called when user clicks a connect link -- starts polling. */
   const handleConnectClick = () => {
     connectionsCountRef.current = connections.length;
+    // Snapshot updated_at values so we can detect token refreshes (same account reconnected)
+    connectionsSnapshotRef.current = connections.map((c) => c.updated_at).sort().join(',');
     setPollingForConnection(true);
   };
 
-  // Poll for new connections after the user clicks "Connect"
+  // Poll for new connections after connect click
   useEffect(() => {
     if (!pollingForConnection) return;
 
@@ -73,10 +112,13 @@ export function Projects() {
       api.getConnections()
         .then((res) => {
           const filtered = res.connections.filter((c) => c.provider === provider);
-          if (filtered.length > connectionsCountRef.current) {
-            // New account appeared -- stop polling and update
+          const newSnapshot = filtered.map((c) => c.updated_at).sort().join(',');
+          const changed = filtered.length > connectionsCountRef.current
+            || newSnapshot !== connectionsSnapshotRef.current;
+          if (changed) {
             setConnections(filtered);
             setSelectedAccountId(filtered[filtered.length - 1].id);
+            setRepoFetchKey((k) => k + 1);
             setPollingForConnection(false);
           }
         })
@@ -95,32 +137,107 @@ export function Projects() {
     }
   }, [isCreateOpen]);
 
+  // Fetch repos when auth is resolved (connected account selected)
+  useEffect(() => {
+    if (provider === 'local') return;
+    if (authMethod !== 'account' || !selectedAccountId) {
+      setRepos([]);
+      return;
+    }
+
+    setLoadingRepos(true);
+    setSelectedRepo(null);
+    setBranches([]);
+    setSelectedBranch('');
+    api.getConnectionRepos(selectedAccountId, { per_page: 100 })
+      .then((res) => setRepos(res.repos))
+      .catch(() => setRepos([]))
+      .finally(() => setLoadingRepos(false));
+  }, [selectedAccountId, authMethod, provider, repoFetchKey]);
+
+  // Filter repos by search
+  const filteredRepos = useMemo(() => {
+    if (!repoSearch) return repos;
+    const q = repoSearch.toLowerCase();
+    return repos.filter(
+      (r) => r.full_name.toLowerCase().includes(q) || (r.description && r.description.toLowerCase().includes(q))
+    );
+  }, [repos, repoSearch]);
+
+  // Fetch branches when a repo is selected
+  useEffect(() => {
+    if (!selectedRepo || !selectedAccountId) {
+      setBranches([]);
+      setSelectedBranch('');
+      return;
+    }
+
+    const [owner, repo] = selectedRepo.full_name.split('/');
+    setLoadingBranches(true);
+    api.getConnectionRepoBranches(selectedAccountId, owner, repo)
+      .then((res) => {
+        setBranches(res.branches);
+        // Auto-select default branch
+        setSelectedBranch(selectedRepo.default_branch);
+      })
+      .catch(() => setBranches([]))
+      .finally(() => setLoadingBranches(false));
+  }, [selectedRepo, selectedAccountId]);
+
+  // Auto-fill project name/slug when repo is selected
+  useEffect(() => {
+    if (selectedRepo) {
+      setProjectName(selectedRepo.name);
+      setProjectSlug(selectedRepo.name.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-'));
+    }
+  }, [selectedRepo]);
+
+  const resetForm = () => {
+    setProvider('local');
+    setAuthMethod('account');
+    setSelectedAccountId('');
+    setManualToken('');
+    setConnections([]);
+    setRepos([]);
+    setRepoSearch('');
+    setSelectedRepo(null);
+    setBranches([]);
+    setSelectedBranch('');
+    setProjectName('');
+    setProjectSlug('');
+    setProjectDescription('');
+    setError(null);
+  };
+
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setCreating(true);
     setError(null);
 
-    const formData = new FormData(e.currentTarget);
-    const providerValue = formData.get('provider') as string;
-
     const data: CreateProjectRequest = {
-      name: formData.get('name') as string,
-      slug: formData.get('slug') as string,
-      description: formData.get('description') as string || undefined,
-      provider: providerValue,
-      root_path: formData.get('root_path') as string,
+      name: projectName,
+      slug: projectSlug,
+      description: projectDescription || undefined,
+      provider,
     };
 
-    // Add remote fields for github/gitlab providers
-    if (providerValue !== 'local') {
-      data.remote_owner = formData.get('remote_owner') as string || undefined;
-      data.remote_repo = formData.get('remote_repo') as string || undefined;
-      data.remote_branch = formData.get('remote_branch') as string || undefined;
+    const formData = new FormData(e.currentTarget);
 
-      if (authMethod === 'account' && selectedAccountId) {
+    if (provider === 'local') {
+      data.root_path = formData.get('root_path') as string;
+    } else {
+      // Remote provider
+      if (authMethod === 'account' && selectedRepo) {
+        const [owner, repo] = selectedRepo.full_name.split('/');
+        data.remote_owner = owner;
+        data.remote_repo = repo;
+        data.remote_branch = selectedBranch || undefined;
         data.connected_account_id = selectedAccountId;
       } else if (authMethod === 'token') {
-        data.access_token = formData.get('access_token') as string || undefined;
+        data.remote_owner = formData.get('remote_owner') as string || undefined;
+        data.remote_repo = formData.get('remote_repo') as string || undefined;
+        data.remote_branch = formData.get('remote_branch') as string || undefined;
+        data.access_token = manualToken || undefined;
       }
     }
 
@@ -128,10 +245,7 @@ export function Projects() {
       await api.createProject(data);
       mutate('projects');
       setIsCreateOpen(false);
-      setProvider('local');
-      setSelectedAccountId('');
-      setAuthMethod('account');
-      (e.target as HTMLFormElement).reset();
+      resetForm();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create project');
     } finally {
@@ -158,6 +272,17 @@ export function Projects() {
       year: 'numeric',
     });
   };
+
+  const providerLabel = provider === 'github' ? 'GitHub' : provider === 'gitlab' ? 'GitLab' : 'Local';
+  const providerClientId = authProviders.find((p) => p.id === provider)?.client_id;
+  const orgAccessUrl = provider === 'github' && providerClientId
+    ? `https://github.com/settings/connections/applications/${providerClientId}`
+    : null;
+
+  // Can the form be submitted?
+  const canSubmit = !!projectName && !!projectSlug && (
+    provider === 'local' || (authResolved && repoResolved)
+  );
 
   return (
     <motion.div
@@ -273,18 +398,18 @@ export function Projects() {
       {/* Create Modal */}
       <Modal
         isOpen={isCreateOpen}
-        onClose={() => setIsCreateOpen(false)}
+        onClose={() => { setIsCreateOpen(false); resetForm(); }}
         title="Create Project"
         footer={
           <div className={styles.formActions}>
-            <button className={styles.cancelBtn} onClick={() => setIsCreateOpen(false)}>
+            <button className={styles.cancelBtn} onClick={() => { setIsCreateOpen(false); resetForm(); }}>
               Cancel
             </button>
             <button
               type="submit"
               form="create-project-form"
               className={styles.submitBtn}
-              disabled={creating}
+              disabled={creating || !canSubmit}
             >
               {creating ? 'Creating...' : 'Create Project'}
             </button>
@@ -294,46 +419,24 @@ export function Projects() {
         <form id="create-project-form" className={styles.form} onSubmit={handleCreate}>
           {error && <div className={styles.error}>{error}</div>}
 
-          <div className={styles.formGroup}>
-            <label className={styles.label} htmlFor="name">
-              Name *
-            </label>
-            <input
-              type="text"
-              id="name"
-              name="name"
-              className={styles.input}
-              placeholder="My Project"
-              required
-            />
-          </div>
-
-          <div className={styles.formGroup}>
-            <label className={styles.label} htmlFor="slug">
-              Slug *
-            </label>
-            <input
-              type="text"
-              id="slug"
-              name="slug"
-              className={styles.input}
-              placeholder="my-project"
-              required
-              pattern="[a-z0-9-]+"
-              title="Lowercase letters, numbers, and hyphens only"
-            />
-          </div>
-
+          {/* Step 1: Provider */}
           <div className={styles.formGroup}>
             <label className={styles.label} htmlFor="provider">
-              Provider *
+              Provider
             </label>
             <select
               id="provider"
               name="provider"
               className={styles.input}
               value={provider}
-              onChange={(e) => setProvider(e.target.value)}
+              onChange={(e) => {
+                setProvider(e.target.value);
+                setSelectedRepo(null);
+                setBranches([]);
+                setSelectedBranch('');
+                setSelectedAccountId('');
+                setRepoSearch('');
+              }}
               required
             >
               <option value="local">Local (filesystem)</option>
@@ -342,64 +445,9 @@ export function Projects() {
             </select>
           </div>
 
-          <div className={styles.formGroup}>
-            <label className={styles.label} htmlFor="root_path">
-              Root Path *
-            </label>
-            <input
-              type="text"
-              id="root_path"
-              name="root_path"
-              className={styles.input}
-              placeholder="/path/to/project"
-              required
-            />
-            <small className={styles.hint}>Local path where the project (and fold/ directory) lives</small>
-          </div>
-
+          {/* Step 2: Auth (remote only) */}
           {provider !== 'local' && (
             <>
-              <div className={styles.formGroup}>
-                <label className={styles.label} htmlFor="remote_owner">
-                  Owner *
-                </label>
-                <input
-                  type="text"
-                  id="remote_owner"
-                  name="remote_owner"
-                  className={styles.input}
-                  placeholder="username or organisation"
-                  required
-                />
-              </div>
-
-              <div className={styles.formGroup}>
-                <label className={styles.label} htmlFor="remote_repo">
-                  Repository *
-                </label>
-                <input
-                  type="text"
-                  id="remote_repo"
-                  name="remote_repo"
-                  className={styles.input}
-                  placeholder="repository-name"
-                  required
-                />
-              </div>
-
-              <div className={styles.formGroup}>
-                <label className={styles.label} htmlFor="remote_branch">
-                  Branch
-                </label>
-                <input
-                  type="text"
-                  id="remote_branch"
-                  name="remote_branch"
-                  className={styles.input}
-                  placeholder="main"
-                />
-              </div>
-
               <div className={styles.formGroup}>
                 <label className={styles.label}>
                   Authentication
@@ -439,19 +487,34 @@ export function Projects() {
                           </option>
                         ))}
                       </select>
-                      <a
-                        href={connectUrl(provider)}
-                        target="_blank"
-                        rel="noopener"
-                        className={styles.connectLink}
-                        onClick={handleConnectClick}
-                      >
-                        + Connect another {provider === 'github' ? 'GitHub' : 'GitLab'} account
-                      </a>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                        <a
+                          href={connectUrl(provider)}
+                          target="_blank"
+                          rel="noopener"
+                          className={styles.connectLink}
+                          onClick={handleConnectClick}
+                        >
+                          + Connect another {providerLabel} account
+                        </a>
+                        {orgAccessUrl && (
+                          <>
+                            <a
+                              href={orgAccessUrl}
+                              target="_blank"
+                              rel="noopener"
+                              className={styles.connectLink}
+                            >
+                              Manage organisation access on GitHub
+                            </a>
+                            <span className={styles.hint}>After granting access, reconnect to refresh permissions</span>
+                          </>
+                        )}
+                      </div>
                     </>
                   ) : (
                     <div className={styles.connectPrompt}>
-                      <p className={styles.hint}>No {provider === 'github' ? 'GitHub' : 'GitLab'} accounts connected.</p>
+                      <p className={styles.hint}>No {providerLabel} accounts connected.</p>
                       <a
                         href={connectUrl(provider)}
                         target="_blank"
@@ -462,7 +525,7 @@ export function Projects() {
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                           <path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3" />
                         </svg>
-                        Connect {provider === 'github' ? 'GitHub' : 'GitLab'}
+                        Connect {providerLabel}
                       </a>
                       {pollingForConnection && (
                         <p className={styles.hint}>Waiting for authorisation...</p>
@@ -481,12 +544,182 @@ export function Projects() {
                     name="access_token"
                     className={styles.input}
                     placeholder="ghp_xxxxx or glpat-xxxxx"
+                    value={manualToken}
+                    onChange={(e) => setManualToken(e.target.value)}
                   />
                   <small className={styles.hint}>Personal access token for private repositories</small>
                 </div>
               )}
             </>
           )}
+
+          {/* Step 3: Repository picker (remote + account auth only) */}
+          {provider !== 'local' && authMethod === 'account' && selectedAccountId && (
+            <div className={styles.formGroup}>
+              <label className={styles.label}>Repository</label>
+              {loadingRepos ? (
+                <div className={styles.hint}>Loading repositories...</div>
+              ) : repos.length > 0 ? (
+                <>
+                  <input
+                    type="text"
+                    className={styles.input}
+                    placeholder="Search repositories..."
+                    value={repoSearch}
+                    onChange={(e) => setRepoSearch(e.target.value)}
+                  />
+                  <div className={styles.repoList}>
+                    {filteredRepos.slice(0, 50).map((repo) => (
+                      <button
+                        key={repo.id}
+                        type="button"
+                        className={`${styles.repoItem} ${selectedRepo?.id === repo.id ? styles.repoItemSelected : ''}`}
+                        onClick={() => setSelectedRepo(repo)}
+                      >
+                        <div className={styles.repoItemMain}>
+                          <span className={styles.repoName}>{repo.full_name}</span>
+                          {repo.private && <span className={styles.repoBadge}>private</span>}
+                        </div>
+                        {repo.description && (
+                          <span className={styles.repoDescription}>{repo.description}</span>
+                        )}
+                      </button>
+                    ))}
+                    {filteredRepos.length === 0 && (
+                      <div className={styles.hint} style={{ padding: '0.75rem' }}>No matching repositories</div>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className={styles.hint}>No repositories found for this account</div>
+              )}
+            </div>
+          )}
+
+          {/* For manual token: show owner/repo fields */}
+          {provider !== 'local' && authMethod === 'token' && (
+            <>
+              <div className={styles.formGroup}>
+                <label className={styles.label} htmlFor="remote_owner">
+                  Owner *
+                </label>
+                <input
+                  type="text"
+                  id="remote_owner"
+                  name="remote_owner"
+                  className={styles.input}
+                  placeholder="username or organisation"
+                  required
+                />
+              </div>
+              <div className={styles.formGroup}>
+                <label className={styles.label} htmlFor="remote_repo">
+                  Repository *
+                </label>
+                <input
+                  type="text"
+                  id="remote_repo"
+                  name="remote_repo"
+                  className={styles.input}
+                  placeholder="repository-name"
+                  required
+                />
+              </div>
+              <div className={styles.formGroup}>
+                <label className={styles.label} htmlFor="remote_branch">
+                  Branch
+                </label>
+                <input
+                  type="text"
+                  id="remote_branch"
+                  name="remote_branch"
+                  className={styles.input}
+                  placeholder="main"
+                />
+              </div>
+            </>
+          )}
+
+          {/* Step 4: Branch picker (remote + account + repo selected) */}
+          {provider !== 'local' && authMethod === 'account' && selectedRepo && (
+            <div className={styles.formGroup}>
+              <label className={styles.label}>Branch</label>
+              {loadingBranches ? (
+                <div className={styles.hint}>Loading branches...</div>
+              ) : branches.length > 0 ? (
+                <select
+                  className={styles.input}
+                  value={selectedBranch}
+                  onChange={(e) => setSelectedBranch(e.target.value)}
+                >
+                  {branches.map((b) => (
+                    <option key={b.name} value={b.name}>
+                      {b.name}{b.name === selectedRepo.default_branch ? ' (default)' : ''}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <div className={styles.hint}>No branches found</div>
+              )}
+            </div>
+          )}
+
+          {/* Divider before project details */}
+          {(provider === 'local' || repoResolved) && (
+            <div className={styles.divider} />
+          )}
+
+          {/* Step 5: Project details (always visible for local, after repo selection for remote) */}
+          {provider === 'local' && (
+            <div className={styles.formGroup}>
+              <label className={styles.label} htmlFor="root_path">
+                Root Path *
+              </label>
+              <input
+                type="text"
+                id="root_path"
+                name="root_path"
+                className={styles.input}
+                placeholder="/path/to/project"
+                required
+              />
+              <small className={styles.hint}>Local path where the project (and fold/ directory) lives</small>
+            </div>
+          )}
+
+          <div className={styles.formGroup}>
+            <label className={styles.label} htmlFor="name">
+              Name *
+            </label>
+            <input
+              type="text"
+              id="name"
+              name="name"
+              className={styles.input}
+              placeholder="My Project"
+              value={projectName}
+              onChange={(e) => setProjectName(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className={styles.formGroup}>
+            <label className={styles.label} htmlFor="slug">
+              Slug *
+            </label>
+            <input
+              type="text"
+              id="slug"
+              name="slug"
+              className={styles.input}
+              placeholder="my-project"
+              value={projectSlug}
+              onChange={(e) => setProjectSlug(e.target.value)}
+              required
+              pattern="[a-z0-9-]+"
+              title="Lowercase letters, numbers, and hyphens only"
+            />
+          </div>
 
           <div className={styles.formGroup}>
             <label className={styles.label} htmlFor="description">
@@ -497,6 +730,8 @@ export function Projects() {
               name="description"
               className={styles.textarea}
               placeholder="What's this project about?"
+              value={projectDescription}
+              onChange={(e) => setProjectDescription(e.target.value)}
             />
           </div>
         </form>
