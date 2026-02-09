@@ -274,10 +274,23 @@ export function Projects() {
   };
 
   const providerLabel = provider === 'github' ? 'GitHub' : provider === 'gitlab' ? 'GitLab' : 'Local';
-  const providerClientId = authProviders.find((p) => p.id === provider)?.client_id;
-  const orgAccessUrl = provider === 'github' && providerClientId
-    ? `https://github.com/settings/connections/applications/${providerClientId}`
+  const githubProvider = authProviders.find((p) => p.id === 'github');
+  const appSlug = githubProvider?.app_slug;
+  const providerClientId = githubProvider?.client_id;
+  // GitHub App: link to manage installations; legacy OAuth App: link to manage org access
+  const manageAccessUrl = provider === 'github'
+    ? appSlug
+      ? `https://github.com/apps/${appSlug}/installations/new`
+      : providerClientId
+        ? `https://github.com/settings/connections/applications/${providerClientId}`
+        : null
     : null;
+  const manageAccessLabel = appSlug
+    ? 'Manage repository access on GitHub'
+    : 'Manage organisation access on GitHub';
+  const manageAccessHint = appSlug
+    ? 'After updating access, reconnect to refresh permissions'
+    : 'After granting access, reconnect to refresh permissions';
 
   // Can the form be submitted?
   const canSubmit = !!projectName && !!projectSlug && (
@@ -497,17 +510,17 @@ export function Projects() {
                         >
                           + Connect another {providerLabel} account
                         </a>
-                        {orgAccessUrl && (
+                        {manageAccessUrl && (
                           <>
                             <a
-                              href={orgAccessUrl}
+                              href={manageAccessUrl}
                               target="_blank"
                               rel="noopener"
                               className={styles.connectLink}
                             >
-                              Manage organisation access on GitHub
+                              {manageAccessLabel}
                             </a>
-                            <span className={styles.hint}>After granting access, reconnect to refresh permissions</span>
+                            <span className={styles.hint}>{manageAccessHint}</span>
                           </>
                         )}
                       </div>

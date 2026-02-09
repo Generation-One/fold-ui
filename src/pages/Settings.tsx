@@ -793,6 +793,7 @@ export function Settings() {
                     <option value="gemini">Gemini</option>
                     <option value="openai">OpenAI</option>
                     <option value="ollama">Ollama</option>
+                    <option value="openrouter">OpenRouter</option>
                   </>
                 )}
               </select>

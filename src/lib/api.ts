@@ -295,6 +295,7 @@ export interface AuthProvider {
   icon?: string;
   type: string;
   client_id?: string;
+  app_slug?: string;
 }
 
 export interface LLMProvider {
@@ -321,7 +322,7 @@ export interface LLMProvider {
 
 export interface EmbeddingProvider {
   id: string;
-  name: 'gemini' | 'openai' | 'ollama';
+  name: 'gemini' | 'openai' | 'ollama' | 'openrouter';
   enabled: boolean;
   priority: number;
   search_priority?: number;
@@ -352,7 +353,7 @@ export interface LLMProviderCreateRequest {
 }
 
 export interface EmbeddingProviderCreateRequest {
-  name: 'gemini' | 'openai' | 'ollama';
+  name: 'gemini' | 'openai' | 'ollama' | 'openrouter';
   enabled?: boolean;
   priority?: number;
   search_priority?: number;
