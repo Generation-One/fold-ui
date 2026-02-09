@@ -305,6 +305,47 @@
   margin-top: 0.25rem;
 }
 
+/* Cancel Button */
+.cancelBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+  transition: all 0.2s var(--ease-out-expo);
+}
+
+.cancelBtn:hover:not(:disabled) {
+  border-color: var(--status-error);
+  color: var(--status-error);
+  background: rgba(255, 59, 48, 0.08);
+}
+
+.cancelBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cancelBtn:disabled svg {
+  animation: spin 1s linear infinite;
+}
+
+/* Cancelled status */
+.statusDot.cancelled {
+  background: var(--text-tertiary);
+  opacity: 0.5;
+}
+
+.statusLabel.cancelled {
+  color: var(--text-tertiary);
+  opacity: 0.7;
+}
+
 /* Pagination */
 .pagination {
   display: flex;

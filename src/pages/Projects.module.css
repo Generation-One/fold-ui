@@ -234,6 +234,76 @@
   cursor: not-allowed;
 }
 
+/* Auth Toggle */
+.authToggle {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.authToggleBtn {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  background: var(--elevated);
+  border-right: 1px solid var(--border);
+  transition: all 0.2s var(--ease-out-expo);
+}
+
+.authToggleBtn:last-child {
+  border-right: none;
+}
+
+.authToggleBtn:hover {
+  color: var(--text-primary);
+}
+
+.authToggleActive {
+  background: var(--surface);
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+/* Connect Account */
+.connectPrompt {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.connectBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1rem;
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 0.8rem;
+  color: var(--text-primary);
+  transition: all 0.2s var(--ease-out-expo);
+  text-decoration: none;
+}
+
+.connectBtn:hover {
+  border-color: var(--border-active);
+  background: var(--surface);
+}
+
+.connectLink {
+  font-size: 0.75rem;
+  color: var(--holo-cyan);
+  text-decoration: none;
+  transition: opacity 0.2s;
+}
+
+.connectLink:hover {
+  opacity: 0.8;
+}
+
 /* Loading State */
 .loading {
   display: flex;

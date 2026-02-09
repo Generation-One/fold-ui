@@ -55,11 +55,33 @@ export function Jobs() {
     { pending: 0, running: 0, completed: 0, failed: 0, paused: 0 } as Record<string, number>
   );
 
+  const [cancellingIds, setCancellingIds] = useState<Set<string>>(new Set());
+
   // Reset to page 0 when filter changes
   const handleFilterChange = (status: JobStatus) => {
     setStatusFilter(status);
     setPage(0);
   };
+
+  const handleCancelJob = async (jobId: string) => {
+    setCancellingIds(prev => new Set(prev).add(jobId));
+    try {
+      await api.cancelJob(jobId);
+      mutate();
+    } catch {
+      // Refresh anyway to show current state
+      mutate();
+    } finally {
+      setCancellingIds(prev => {
+        const next = new Set(prev);
+        next.delete(jobId);
+        return next;
+      });
+    }
+  };
+
+  const isCancellable = (status: string) =>
+    ['pending', 'running', 'retry', 'paused'].includes(status);
 
   const formatTime = (dateStr: string) => {
     const date = new Date(dateStr);
@@ -223,6 +245,25 @@ export function Jobs() {
                     {job.status}
                   </span>
                 </div>
+
+                {isCancellable(job.status) && (
+                  <button
+                    className={styles.cancelBtn}
+                    onClick={() => handleCancelJob(job.id)}
+                    disabled={cancellingIds.has(job.id)}
+                    title="Cancel job"
+                  >
+                    {cancellingIds.has(job.id) ? (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4" />
+                      </svg>
+                    ) : (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                      </svg>
+                    )}
+                  </button>
+                )}
 
                 <div className={styles.jobTime}>
                   {formatTime(job.created_at)}

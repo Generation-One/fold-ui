@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import useSWR, { mutate } from 'swr';
-import { api } from '../lib/api';
+import { api, API_BASE } from '../lib/api';
 import { useProject } from '../stores/project';
-import type { Project, CreateProjectRequest } from '../lib/api';
+import type { Project, CreateProjectRequest, ConnectedAccount } from '../lib/api';
 import { Modal, EmptyState } from '../components/ui';
 import styles from './Projects.module.css';
 
@@ -15,10 +15,85 @@ export function Projects() {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [provider, setProvider] = useState<string>('local');
+  const [authMethod, setAuthMethod] = useState<'account' | 'token'>('account');
+  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
+  const [connections, setConnections] = useState<ConnectedAccount[]>([]);
+  const [loadingConnections, setLoadingConnections] = useState(false);
+  const [pollingForConnection, setPollingForConnection] = useState(false);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const connectionsCountRef = useRef(0);
+
+  /** Build the connect URL with the auth token as a query param. */
+  const connectUrl = (prov: string) => {
+    const token = api.getToken();
+    const base = `${API_BASE}/auth/connect/${prov}`;
+    return token ? `${base}?token=${encodeURIComponent(token)}` : base;
+  };
 
   const { data: projects, isLoading } = useSWR<Project[]>('projects', api.listProjects, {
     refreshInterval: 10000,
   });
+
+  /** Fetch connections for the current provider and update state. */
+  const fetchConnections = useCallback(() => {
+    return api.getConnections()
+      .then((res) => {
+        const filtered = res.connections.filter((c) => c.provider === provider);
+        setConnections(filtered);
+        if (filtered.length > 0 && !selectedAccountId) {
+          setSelectedAccountId(filtered[0].id);
+        }
+        return filtered;
+      })
+      .catch(() => {
+        setConnections([]);
+        return [] as ConnectedAccount[];
+      });
+  }, [provider, selectedAccountId]);
+
+  // Fetch connected accounts when the modal opens with a remote provider
+  useEffect(() => {
+    if (isCreateOpen && provider !== 'local') {
+      setLoadingConnections(true);
+      fetchConnections().finally(() => setLoadingConnections(false));
+    }
+  }, [isCreateOpen, provider]);
+
+  /** Called when user clicks a connect link -- starts polling for new accounts. */
+  const handleConnectClick = () => {
+    connectionsCountRef.current = connections.length;
+    setPollingForConnection(true);
+  };
+
+  // Poll for new connections after the user clicks "Connect"
+  useEffect(() => {
+    if (!pollingForConnection) return;
+
+    pollingRef.current = setInterval(() => {
+      api.getConnections()
+        .then((res) => {
+          const filtered = res.connections.filter((c) => c.provider === provider);
+          if (filtered.length > connectionsCountRef.current) {
+            // New account appeared -- stop polling and update
+            setConnections(filtered);
+            setSelectedAccountId(filtered[filtered.length - 1].id);
+            setPollingForConnection(false);
+          }
+        })
+        .catch(() => {});
+    }, 1000);
+
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
+  }, [pollingForConnection, provider]);
+
+  // Stop polling when modal closes
+  useEffect(() => {
+    if (!isCreateOpen) {
+      setPollingForConnection(false);
+    }
+  }, [isCreateOpen]);
 
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -41,7 +116,12 @@ export function Projects() {
       data.remote_owner = formData.get('remote_owner') as string || undefined;
       data.remote_repo = formData.get('remote_repo') as string || undefined;
       data.remote_branch = formData.get('remote_branch') as string || undefined;
-      data.access_token = formData.get('access_token') as string || undefined;
+
+      if (authMethod === 'account' && selectedAccountId) {
+        data.connected_account_id = selectedAccountId;
+      } else if (authMethod === 'token') {
+        data.access_token = formData.get('access_token') as string || undefined;
+      }
     }
 
     try {
@@ -49,6 +129,8 @@ export function Projects() {
       mutate('projects');
       setIsCreateOpen(false);
       setProvider('local');
+      setSelectedAccountId('');
+      setAuthMethod('account');
       (e.target as HTMLFormElement).reset();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create project');
@@ -319,18 +401,90 @@ export function Projects() {
               </div>
 
               <div className={styles.formGroup}>
-                <label className={styles.label} htmlFor="access_token">
-                  Access Token
+                <label className={styles.label}>
+                  Authentication
                 </label>
-                <input
-                  type="password"
-                  id="access_token"
-                  name="access_token"
-                  className={styles.input}
-                  placeholder="ghp_xxxxx or glpat-xxxxx"
-                />
-                <small className={styles.hint}>Personal access token for private repositories</small>
+                <div className={styles.authToggle}>
+                  <button
+                    type="button"
+                    className={`${styles.authToggleBtn} ${authMethod === 'account' ? styles.authToggleActive : ''}`}
+                    onClick={() => setAuthMethod('account')}
+                  >
+                    Connected Account
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.authToggleBtn} ${authMethod === 'token' ? styles.authToggleActive : ''}`}
+                    onClick={() => setAuthMethod('token')}
+                  >
+                    Manual Token
+                  </button>
+                </div>
               </div>
+
+              {authMethod === 'account' ? (
+                <div className={styles.formGroup}>
+                  {loadingConnections ? (
+                    <div className={styles.hint}>Loading accounts...</div>
+                  ) : connections.length > 0 ? (
+                    <>
+                      <select
+                        className={styles.input}
+                        value={selectedAccountId}
+                        onChange={(e) => setSelectedAccountId(e.target.value)}
+                      >
+                        {connections.map((conn) => (
+                          <option key={conn.id} value={conn.id}>
+                            {conn.username} ({conn.provider})
+                          </option>
+                        ))}
+                      </select>
+                      <a
+                        href={connectUrl(provider)}
+                        target="_blank"
+                        rel="noopener"
+                        className={styles.connectLink}
+                        onClick={handleConnectClick}
+                      >
+                        + Connect another {provider === 'github' ? 'GitHub' : 'GitLab'} account
+                      </a>
+                    </>
+                  ) : (
+                    <div className={styles.connectPrompt}>
+                      <p className={styles.hint}>No {provider === 'github' ? 'GitHub' : 'GitLab'} accounts connected.</p>
+                      <a
+                        href={connectUrl(provider)}
+                        target="_blank"
+                        rel="noopener"
+                        className={styles.connectBtn}
+                        onClick={handleConnectClick}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4M10 17l5-5-5-5M15 12H3" />
+                        </svg>
+                        Connect {provider === 'github' ? 'GitHub' : 'GitLab'}
+                      </a>
+                      {pollingForConnection && (
+                        <p className={styles.hint}>Waiting for authorisation...</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className={styles.formGroup}>
+                  <label className={styles.label} htmlFor="access_token">
+                    Access Token
+                  </label>
+                  <input
+                    type="password"
+                    id="access_token"
+                    name="access_token"
+                    className={styles.input}
+                    placeholder="ghp_xxxxx or glpat-xxxxx"
+                  />
+                  <small className={styles.hint}>Personal access token for private repositories</small>
+                </div>
+              )}
             </>
           )}
 

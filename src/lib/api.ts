@@ -96,6 +96,16 @@ export interface CreateProjectRequest {
   remote_repo?: string;
   remote_branch?: string;
   access_token?: string;
+  connected_account_id?: string;
+}
+
+export interface ConnectedAccount {
+  id: string;
+  provider: string;
+  username: string;
+  scopes: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface AlgorithmConfig {
@@ -945,6 +955,23 @@ class FoldApiClient {
     return this._fetch(`/status/jobs/${jobId}/logs?${query}`);
   }
 
+  async cancelJob(jobId: string): Promise<RawJob> {
+    return this._fetch<RawJob>(`/status/jobs/${jobId}/cancel`, {
+      method: 'POST',
+    });
+  }
+
+  // Connected accounts
+  async getConnections(): Promise<{ connections: ConnectedAccount[] }> {
+    return this._fetch<{ connections: ConnectedAccount[] }>('/auth/connections');
+  }
+
+  async deleteConnection(connectionId: string): Promise<void> {
+    return this._fetch<void>(`/auth/connections/${connectionId}`, {
+      method: 'DELETE',
+    });
+  }
+
   // Auth logout
   async logout(): Promise<void> {
     return this._fetch('/auth/logout', {
@@ -1212,6 +1239,11 @@ export const api = {
   },
   getJobLogs: (jobId: string, params?: { level?: string; limit?: number }) =>
     apiClient.getJobLogs(jobId, params),
+  cancelJob: (jobId: string) => apiClient.cancelJob(jobId),
+
+  // Connected accounts
+  getConnections: () => apiClient.getConnections(),
+  deleteConnection: (connectionId: string) => apiClient.deleteConnection(connectionId),
 
   // Auth
   logout: () => apiClient.logout(),
