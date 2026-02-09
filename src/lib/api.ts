@@ -91,7 +91,7 @@ export interface CreateProjectRequest {
   name: string;
   description?: string;
   provider: string;
-  root_path: string;
+  root_path?: string;
   remote_owner?: string;
   remote_repo?: string;
   remote_branch?: string;
@@ -106,6 +106,23 @@ export interface ConnectedAccount {
   scopes: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface GitHubRepo {
+  id: number;
+  name: string;
+  full_name: string;
+  description: string | null;
+  default_branch: string;
+  private: boolean;
+  html_url: string;
+  clone_url: string;
+}
+
+export interface GitHubBranch {
+  name: string;
+  sha: string;
+  protected: boolean;
 }
 
 export interface AlgorithmConfig {
@@ -277,6 +294,7 @@ export interface AuthProvider {
   display_name: string;
   icon?: string;
   type: string;
+  client_id?: string;
 }
 
 export interface LLMProvider {
@@ -972,6 +990,18 @@ class FoldApiClient {
     });
   }
 
+  async getConnectionRepos(connectionId: string, params: { search?: string; page?: number; per_page?: number } = {}): Promise<{ repos: GitHubRepo[]; page: number; per_page: number }> {
+    const query = new URLSearchParams();
+    if (params.search) query.set('search', params.search);
+    if (params.page) query.set('page', String(params.page));
+    if (params.per_page) query.set('per_page', String(params.per_page));
+    return this._fetch(`/auth/connections/${connectionId}/repos?${query}`);
+  }
+
+  async getConnectionRepoBranches(connectionId: string, owner: string, repo: string): Promise<{ branches: GitHubBranch[] }> {
+    return this._fetch(`/auth/connections/${connectionId}/repos/${owner}/${repo}/branches`);
+  }
+
   // Auth logout
   async logout(): Promise<void> {
     return this._fetch('/auth/logout', {
@@ -1244,6 +1274,10 @@ export const api = {
   // Connected accounts
   getConnections: () => apiClient.getConnections(),
   deleteConnection: (connectionId: string) => apiClient.deleteConnection(connectionId),
+  getConnectionRepos: (connectionId: string, params?: { search?: string; page?: number; per_page?: number }) =>
+    apiClient.getConnectionRepos(connectionId, params),
+  getConnectionRepoBranches: (connectionId: string, owner: string, repo: string) =>
+    apiClient.getConnectionRepoBranches(connectionId, owner, repo),
 
   // Auth
   logout: () => apiClient.logout(),
