@@ -618,6 +618,14 @@ class FoldApiClient {
     });
   }
 
+  /** Trigger a sync of git commits as memories */
+  async syncCommits(projectId: string, limit?: number): Promise<void> {
+    const query = limit ? `?limit=${limit}` : '';
+    return this._fetch<void>(`/projects/${projectId}/sync-commits${query}`, {
+      method: 'POST',
+    });
+  }
+
   async getMemories(
     projectId: string,
     params: {
@@ -1107,6 +1115,7 @@ export const api = {
   // Project actions (reindex, sync)
   reindexProject: (projectId: string) => apiClient.reindexProject(projectId),
   syncProject: (projectId: string) => apiClient.syncProject(projectId),
+  syncCommits: (projectId: string, limit?: number) => apiClient.syncCommits(projectId, limit),
 
   // Memories
   listMemories: async (

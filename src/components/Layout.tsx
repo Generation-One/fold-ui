@@ -278,9 +278,12 @@ export function Layout() {
                 : 'Systems degraded'}
             </span>
           </div>
-          <div className={styles.statusIndicator}>
+          <div className={styles.statusIndicator} style={{ flexDirection: 'column', alignItems: 'flex-end', gap: '0.15rem' }}>
             <span style={{ color: 'var(--text-tertiary)' }}>
-              v{status?.version || '0.1.0'}
+              srv v{status?.version || '0.1.0'}
+            </span>
+            <span style={{ color: 'var(--text-tertiary)', fontSize: '0.65rem' }}>
+              ui v{__APP_VERSION__}
             </span>
           </div>
           {isAuthenticated && (

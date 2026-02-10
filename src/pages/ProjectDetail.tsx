@@ -435,6 +435,7 @@ export function ProjectDetail() {
   const navigate = useNavigate();
   const [tab, setTab] = useState<'status' | 'info' | 'weights' | 'members' | 'advanced'>('status');
   const [indexing, setIndexing] = useState(false);
+  const [syncingCommits, setSyncingCommits] = useState(false);
 
   const { data: project, isLoading, error } = useSWR<Project>(
     projectId ? `project-${projectId}` : null,
@@ -452,6 +453,18 @@ export function ProjectDetail() {
       alert(err instanceof Error ? err.message : 'Failed to index');
     } finally {
       setIndexing(false);
+    }
+  };
+
+  const handleSyncCommits = async () => {
+    if (!project) return;
+    setSyncingCommits(true);
+    try {
+      await api.syncCommits(project.id);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to sync commits');
+    } finally {
+      setSyncingCommits(false);
     }
   };
 
@@ -506,6 +519,20 @@ export function ProjectDetail() {
             ? (project.provider !== 'local' ? 'Reindexing...' : 'Scanning...')
             : (project.provider !== 'local' ? 'Reindex' : 'Scan & Index')}
         </button>
+        {project.provider !== 'local' && (
+          <button
+            className={styles.headerActionBtn}
+            onClick={handleSyncCommits}
+            disabled={syncingCommits}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="4" />
+              <line x1="1.05" y1="12" x2="7" y2="12" />
+              <line x1="17.01" y1="12" x2="22.96" y2="12" />
+            </svg>
+            {syncingCommits ? 'Syncing...' : 'Sync Commits'}
+          </button>
+        )}
       </div>
 
       {project.description && (
