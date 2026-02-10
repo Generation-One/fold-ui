@@ -177,9 +177,13 @@ function ProjectStatusPanel({ projectId }: { projectId: string }) {
           </div>
           <div className={styles.statItem}>
             <span className={status.vector_db.sync_status.in_sync ? styles.statValueOk : styles.statValueWarn}>
-              {status.vector_db.sync_status.in_sync ? 'Synced' : `${status.vector_db.sync_status.difference > 0 ? '+' : ''}${status.vector_db.sync_status.difference}`}
+              {status.vector_db.sync_status.in_sync
+                ? '100%'
+                : `${status.vector_db.sync_status.expected_count > 0
+                    ? Math.round((status.vector_db.sync_status.vector_count / status.vector_db.sync_status.expected_count) * 100)
+                    : 0}%`}
             </span>
-            <span className={styles.statLabel}>Sync Status</span>
+            <span className={styles.statLabel}>Embedded</span>
           </div>
         </div>
         <div className={styles.collectionInfo}>
