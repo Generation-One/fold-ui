@@ -1,14 +1,22 @@
 #!/bin/sh
 set -e
 
-# Replace the placeholder with the actual API URL
-# Default to http://localhost:8765 if VITE_API_URL is not set
-API_URL="${VITE_API_URL:-http://localhost:8765}"
+# Generate runtime config from environment variables.
+# If VITE_API_URL is empty or unset, the UI uses same-origin requests (recommended
+# when the reverse proxy serves both UI and API on the same domain).
+API_URL="${VITE_API_URL:-}"
 
-echo "Configuring API URL: $API_URL"
+if [ -n "$API_URL" ]; then
+  echo "Configuring API URL: $API_URL"
+else
+  echo "No VITE_API_URL set — using same-origin requests"
+fi
 
-# Find and replace the placeholder in all JS files
-find /usr/share/nginx/html -name '*.js' -exec sed -i "s|__VITE_API_URL_PLACEHOLDER__|${API_URL}|g" {} \;
+cat > /usr/share/nginx/html/config.js <<EOF
+window.__FOLD_CONFIG__ = {
+  apiUrl: "${API_URL}"
+};
+EOF
 
 # Execute the main command (nginx)
 exec "$@"

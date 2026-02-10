@@ -1,6 +1,9 @@
 // Fold API Client
 
-export const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8765';
+// Runtime config (injected by docker-entrypoint.sh via /config.js) takes priority,
+// then Vite build-time env var, then empty string for same-origin requests.
+const _win = globalThis as unknown as { __FOLD_CONFIG__?: { apiUrl?: string } };
+export const API_BASE = _win.__FOLD_CONFIG__?.apiUrl ?? import.meta.env.VITE_API_URL ?? '';
 
 // Types
 export interface SystemStatus {

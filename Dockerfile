@@ -12,8 +12,7 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Build with placeholder URL that will be replaced at runtime
-ENV VITE_API_URL=__VITE_API_URL_PLACEHOLDER__
+# Build without baking in an API URL — it's injected at runtime via config.js
 RUN npm run build
 
 # Production stage - serve with nginx
