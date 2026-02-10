@@ -38,7 +38,7 @@ function ProjectStatusPanel({ projectId }: { projectId: string }) {
   const { data: status, isLoading, error } = useSWR<ProjectStatus>(
     `project-status-${projectId}`,
     () => api.getProjectStatus(projectId),
-    { refreshInterval: 10000 }
+    { refreshInterval: 5000 }
   );
 
   if (isLoading) {
