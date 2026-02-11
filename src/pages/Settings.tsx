@@ -126,9 +126,18 @@ export function Settings() {
         const config: Record<string, any> = {};
         const model = formData.get('model') as string;
         if (model) config.model = model;
+        const endpoint = formData.get('endpoint') as string;
+        if (endpoint) config.endpoint = endpoint;
+
+        const providerName = formData.get('name') as LLMProviderCreateRequest['name'];
+
+        // For openai_compat, store provider_type in config so the backend dispatches correctly
+        if (providerName === 'openai_compat') {
+          config.provider_type = 'openai_compat';
+        }
 
         const data: LLMProviderCreateRequest = {
-          name: formData.get('name') as 'gemini' | 'openai' | 'anthropic' | 'openrouter' | 'claudecode',
+          name: providerName,
           auth_type: formData.get('auth_type') as 'api_key' | 'oauth',
           api_key: formData.get('api_key') as string || undefined,
           priority: formData.get('priority') ? Number(formData.get('priority')) : undefined,
@@ -551,6 +560,8 @@ export function Settings() {
                     {llmProviders.map((provider) => {
                       const displayName = provider.name === 'claudecode'
                         ? 'Claude Code'
+                        : provider.name === 'openai_compat'
+                        ? 'OpenAI Compatible'
                         : provider.name.charAt(0).toUpperCase() + provider.name.slice(1);
                       const model = provider.config?.model as string | undefined;
                       const subType = provider.config?.subscription_type as string | undefined;
@@ -582,6 +593,9 @@ export function Settings() {
                                 </span>
                               )}
                               {model && <span className={styles.providerModel}>{model}</span>}
+                              {provider.name === 'openai_compat' && provider.config?.endpoint && (
+                                <span className={styles.providerModel}>{provider.config.endpoint as string}</span>
+                              )}
                               <span className={styles.providerPriority}>Priority: {provider.priority}</span>
                             </div>
                             <div className={styles.providerActions}>
@@ -787,6 +801,7 @@ export function Settings() {
                     <option value="anthropic">Anthropic (Claude API)</option>
                     <option value="claudecode">Claude Code (Max/Pro subscription)</option>
                     <option value="openrouter">OpenRouter</option>
+                    <option value="openai_compat">OpenAI Compatible (v1)</option>
                   </>
                 ) : (
                   <>
@@ -817,8 +832,8 @@ export function Settings() {
             {/* API Key / URL on the right - only for non-Claude Code */}
             {selectedProviderName !== 'claudecode' && (
               <div className={styles.inputGroup}>
-                {/* API Key for non-Ollama providers */}
-                {(selectedProviderName !== 'anthropic' || selectedAuthType === 'api_key') && selectedProviderName !== 'ollama' && (
+                {/* API Key for providers that need it (not Ollama, not openai_compat) */}
+                {(selectedProviderName !== 'anthropic' || selectedAuthType === 'api_key') && selectedProviderName !== 'ollama' && selectedProviderName !== 'openai_compat' && (
                   <>
                     <label className={styles.label}>
                       API Key {!editingProvider && '*'}
@@ -874,6 +889,35 @@ export function Settings() {
                     <p className={styles.hint}>
                       Ollama runs locally. Leave blank to use default{' '}
                       <code>http://localhost:11434</code>
+                    </p>
+                  </>
+                )}
+
+                {/* Endpoint + optional API key for OpenAI Compatible */}
+                {selectedProviderName === 'openai_compat' && (
+                  <>
+                    <label className={styles.label}>Base URL *</label>
+                    <input
+                      type="text"
+                      name="endpoint"
+                      className={styles.input}
+                      placeholder="http://localhost:8080/v1"
+                      defaultValue={editingProvider?.config?.endpoint as string || ''}
+                      required
+                    />
+                    <p className={styles.hint}>
+                      The base URL of your OpenAI-compatible API (e.g. LiteLLM, vLLM, LocalAI, CLI Proxy)
+                    </p>
+
+                    <label className={styles.label} style={{ marginTop: '0.75rem' }}>API Key (optional)</label>
+                    <input
+                      type="password"
+                      name="api_key"
+                      className={styles.input}
+                      placeholder={editingProvider ? '(unchanged)' : 'Leave blank if not required'}
+                    />
+                    <p className={styles.hint}>
+                      Only needed if your proxy requires authentication
                     </p>
                   </>
                 )}
@@ -1028,6 +1072,11 @@ export function Settings() {
                           <a href="https://ollama.ai/library" target="_blank" rel="noopener noreferrer" className={styles.linkBtn}>
                             Ollama model library
                           </a>
+                        )}
+                        {selectedProviderName === 'openai_compat' && (
+                          <span className={styles.hint}>
+                            The model name to pass to your proxy. Leave blank to use the proxy's default.
+                          </span>
                         )}
                       </p>
                     </div>

@@ -307,7 +307,7 @@ export interface AuthProvider {
 
 export interface LLMProvider {
   id: string;
-  name: 'gemini' | 'openai' | 'anthropic' | 'openrouter' | 'claudecode';
+  name: 'gemini' | 'openai' | 'anthropic' | 'openrouter' | 'claudecode' | 'openai_compat';
   enabled: boolean;
   priority: number;
   auth_type: 'api_key' | 'oauth';
@@ -351,7 +351,7 @@ export interface EmbeddingProvider {
 }
 
 export interface LLMProviderCreateRequest {
-  name: 'gemini' | 'openai' | 'anthropic' | 'openrouter' | 'claudecode';
+  name: 'gemini' | 'openai' | 'anthropic' | 'openrouter' | 'claudecode' | 'openai_compat';
   enabled?: boolean;
   priority?: number;
   auth_type?: 'api_key' | 'oauth';
