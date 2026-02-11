@@ -261,6 +261,10 @@ export interface Memory {
   file_path?: string;
   language?: string;
 
+  // Line range within source file (for chunk memories)
+  line_start?: number;
+  line_end?: number;
+
   // Metadata
   title?: string;
   author?: string;

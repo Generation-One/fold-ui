@@ -145,6 +145,13 @@ export function MemoryDetailModal({
                   </svg>
                   <code>{displayMemory.file_path}</code>
                 </button>
+                {displayMemory.line_start != null && (
+                  <span className={styles.lineRange}>
+                    {displayMemory.line_end != null && displayMemory.line_end !== displayMemory.line_start
+                      ? `lines ${displayMemory.line_start}–${displayMemory.line_end}`
+                      : `line ${displayMemory.line_start}`}
+                  </span>
+                )}
                 {displayMemory.language && <span className={styles.language}>{displayMemory.language}</span>}
               </div>
             )}

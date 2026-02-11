@@ -187,7 +187,7 @@
 /* File path */
 .filePath {
   display: flex;
-  align-items: center;
+  align-items: stretch;
   gap: 0.375rem;
   min-width: 0;
 }
@@ -199,7 +199,7 @@
 
 .filePath code {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: var(--holo-cyan);
   white-space: nowrap;
   overflow: hidden;
@@ -237,19 +237,38 @@
 
 .downloadButton code {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: var(--holo-cyan);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+.lineRange {
+  display: inline-flex;
+  align-items: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  line-height: 14px;
+  padding: 0.25rem 0.5rem;
+  background: rgba(34, 197, 94, 0.12);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+
 .language {
-  font-size: 0.65rem;
+  display: inline-flex;
+  align-items: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem;
+  line-height: 14px;
   text-transform: uppercase;
-  padding: 0.125rem 0.375rem;
+  padding: 0.25rem 0.5rem;
   background: rgba(139, 92, 246, 0.15);
   color: var(--holo-violet);
+  border: 1px solid rgba(139, 92, 246, 0.2);
   border-radius: var(--radius-sm);
 }
 

@@ -330,6 +330,13 @@ export function Search() {
                 {result.memory.file_path && (
                   <div className={styles.resultFilePath}>
                     <code>{result.memory.file_path}</code>
+                    {result.memory.line_start != null && (
+                      <span className={styles.lineRange}>
+                        {result.memory.line_end != null && result.memory.line_end !== result.memory.line_start
+                          ? `lines ${result.memory.line_start}–${result.memory.line_end}`
+                          : `line ${result.memory.line_start}`}
+                      </span>
+                    )}
                   </div>
                 )}
 
