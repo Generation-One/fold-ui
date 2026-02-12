@@ -107,6 +107,8 @@ export interface ConnectedAccount {
   provider: string;
   username: string;
   scopes: string | null;
+  token_expires_at: string | null;
+  installation_id: number | null;
   created_at: string;
   updated_at: string;
 }

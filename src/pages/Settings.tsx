@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import useSWR, { mutate } from 'swr';
 import { api, API_BASE } from '../lib/api';
-import type { LLMProvider, LLMProviderCreateRequest, EmbeddingProvider, EmbeddingProviderCreateRequest } from '../lib/api';
+import type { LLMProvider, LLMProviderCreateRequest, EmbeddingProvider, EmbeddingProviderCreateRequest, ConnectedAccount } from '../lib/api';
 import { useAuth } from '../stores/auth';
 import { Modal } from '../components/ui';
 import { useToast } from '../components/ToastContext';
@@ -12,7 +12,17 @@ import styles from './Settings.module.css';
 export function Settings() {
   const { token, isAuthenticated, setToken, clearAuth, bootstrap, error } = useAuth();
   const { showToast } = useToast();
-  const [mainTab, setMainTab] = useState<'token' | 'oauth' | 'bootstrap' | 'llm' | 'embedding'>('token');
+  const [mainTab, setMainTab] = useState<'token' | 'oauth' | 'bootstrap' | 'accounts' | 'llm' | 'embedding'>('token');
+
+  // Connected accounts
+  const { data: connectionsData, mutate: mutateConnections } = useSWR(
+    isAuthenticated ? 'connections' : null,
+    () => api.getConnections()
+  );
+  const [pollingForConnection, setPollingForConnection] = useState(false);
+  const [disconnecting, setDisconnecting] = useState<string | null>(null);
+  const connectionsSnapshotRef = useRef<string>('');
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Token form
   const [tokenInput, setTokenInput] = useState(token || '');
@@ -195,6 +205,58 @@ export function Settings() {
     setTimeout(() => setTokenSaved(false), 2000);
   };
 
+  // Connected accounts helpers
+  const connectUrl = (provider: string) => {
+    const t = api.getToken();
+    const base = `${API_BASE}/auth/connect/${provider}`;
+    return t ? `${base}?token=${encodeURIComponent(t)}` : base;
+  };
+
+  const handleConnectClick = () => {
+    const connections = connectionsData?.connections || [];
+    connectionsSnapshotRef.current = connections.map((c) => c.updated_at).sort().join(',');
+    setPollingForConnection(true);
+  };
+
+  // Poll for new/updated connections after connect click
+  useEffect(() => {
+    if (!pollingForConnection) return;
+    pollingRef.current = setInterval(() => {
+      api.getConnections().then((res) => {
+        const newSnapshot = res.connections.map((c) => c.updated_at).sort().join(',');
+        if (newSnapshot !== connectionsSnapshotRef.current) {
+          mutateConnections(res, false);
+          setPollingForConnection(false);
+          showToast('Account connected', 'success');
+        }
+      }).catch(() => {});
+    }, 1000);
+    return () => { if (pollingRef.current) clearInterval(pollingRef.current); };
+  }, [pollingForConnection, mutateConnections, showToast]);
+
+  // Stop polling when leaving accounts tab
+  useEffect(() => {
+    if (mainTab !== 'accounts') setPollingForConnection(false);
+  }, [mainTab]);
+
+  const handleDisconnect = async (account: ConnectedAccount) => {
+    if (!confirm(`Disconnect ${account.username} (${account.provider})? Projects using this account will keep their existing token.`)) return;
+    setDisconnecting(account.id);
+    try {
+      await api.deleteConnection(account.id);
+      mutateConnections();
+      showToast('Account disconnected', 'success');
+    } catch {
+      showToast('Failed to disconnect account', 'error');
+    } finally {
+      setDisconnecting(null);
+    }
+  };
+
+  const isTokenExpired = (account: ConnectedAccount) => {
+    if (!account.token_expires_at) return false;
+    return new Date(account.token_expires_at) < new Date();
+  };
 
   const handleBootstrap = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -396,6 +458,12 @@ export function Settings() {
           onClick={() => setMainTab('bootstrap')}
         >
           Bootstrap
+        </button>
+        <button
+          className={`${styles.mainTab} ${mainTab === 'accounts' ? styles.active : ''}`}
+          onClick={() => setMainTab('accounts')}
+        >
+          Accounts
         </button>
         <button
           className={`${styles.mainTab} ${mainTab === 'llm' ? styles.active : ''}`}
@@ -639,6 +707,104 @@ export function Settings() {
                   </div>
                 )}
               </form>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Connected Accounts Tab */}
+        {mainTab === 'accounts' && (
+          <motion.div
+            className={styles.card}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
+          >
+            <div className={styles.cardHeader}>
+              <span className={styles.cardTitle}>Connected Accounts</span>
+              <div className={styles.connectActions}>
+                <a
+                  href={connectUrl('github')}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={styles.primaryBtn}
+                  onClick={handleConnectClick}
+                  style={{ textDecoration: 'none' }}
+                >
+                  Connect GitHub
+                </a>
+              </div>
+            </div>
+
+            <div className={styles.cardContent}>
+              <p className={styles.description}>
+                Connected accounts are used when creating projects from GitHub repositories. Tokens are refreshed automatically but expire after approximately 8 hours.
+              </p>
+
+              {pollingForConnection && (
+                <div className={styles.providerHint}>
+                  Waiting for connection... Complete the authorisation in the new tab.
+                </div>
+              )}
+
+              {connectionsData && connectionsData.connections.length > 0 ? (
+                <div className={styles.providerList}>
+                  {connectionsData.connections.map((account) => {
+                    const expired = isTokenExpired(account);
+                    return (
+                      <div key={account.id} className={styles.providerItem}>
+                        <div className={styles.providerHeader}>
+                          <div className={styles.providerName}>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style={{ verticalAlign: 'middle', marginRight: '0.5rem' }}>
+                              <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z" />
+                            </svg>
+                            {account.username}
+                          </div>
+                          <span className={`${styles.providerStatusBadge} ${expired ? styles.disabled : styles.enabled}`}>
+                            <span className={styles.providerStatusDot} />
+                            {expired ? 'Expired' : 'Active'}
+                          </span>
+                        </div>
+                        <div className={styles.providerBody}>
+                          <div className={styles.providerMeta}>
+                            <span className={styles.providerType}>{account.provider}</span>
+                            {account.scopes && <span className={styles.providerAuth}>{account.scopes}</span>}
+                            <span className={styles.accountMeta}>
+                              Connected {new Date(account.created_at).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <div className={styles.providerActions}>
+                            <a
+                              href={connectUrl(account.provider)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={styles.testBtn}
+                              onClick={handleConnectClick}
+                              style={{ textDecoration: 'none' }}
+                            >
+                              Reconnect
+                            </a>
+                            <button
+                              className={styles.deleteBtn}
+                              onClick={() => handleDisconnect(account)}
+                              disabled={disconnecting === account.id}
+                              title="Disconnect"
+                            >
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <polyline points="3 6 5 6 21 6" />
+                                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                              </svg>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className={styles.noProviders}>
+                  No accounts connected. Connect a GitHub account to create projects from repositories.
+                </p>
+              )}
             </div>
           </motion.div>
         )}

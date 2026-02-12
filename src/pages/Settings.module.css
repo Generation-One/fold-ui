@@ -648,3 +648,14 @@
   border-radius: var(--radius-md);
   border: 1px solid var(--border);
 }
+
+/* Connected Accounts */
+.connectActions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.accountMeta {
+  font-size: 0.7rem;
+  color: var(--text-tertiary);
+}
