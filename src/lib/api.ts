@@ -1020,6 +1020,10 @@ class FoldApiClient {
     return this._fetch(`/auth/connections/${connectionId}/repos/${owner}/${repo}/branches`);
   }
 
+  async getProjectBranches(projectId: string): Promise<{ branches: GitHubBranch[] }> {
+    return this._fetch(`/projects/${projectId}/branches`);
+  }
+
   // Auth logout
   async logout(): Promise<void> {
     return this._fetch('/auth/logout', {
@@ -1297,6 +1301,8 @@ export const api = {
     apiClient.getConnectionRepos(connectionId, params),
   getConnectionRepoBranches: (connectionId: string, owner: string, repo: string) =>
     apiClient.getConnectionRepoBranches(connectionId, owner, repo),
+  getProjectBranches: (projectId: string) =>
+    apiClient.getProjectBranches(projectId),
 
   // Auth
   logout: () => apiClient.logout(),

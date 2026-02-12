@@ -1,9 +1,9 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import useSWR, { mutate } from 'swr';
 import { api } from '../lib/api';
-import type { Project, ProjectStatus } from '../lib/api';
+import type { Project, ProjectStatus, GitHubBranch } from '../lib/api';
 import { ProjectSettings } from '../components/ProjectSettings';
 import { ProjectMemberManager } from '../components/ProjectMemberManager';
 import styles from './ProjectDetail.module.css';
@@ -372,8 +372,22 @@ function ProjectInfo({ project, onUpdate }: { project: Project; onUpdate: () => 
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState(project.name);
   const [editDesc, setEditDesc] = useState(project.description || '');
+  const [editBranch, setEditBranch] = useState(project.remote_branch || '');
+  const [branches, setBranches] = useState<GitHubBranch[]>([]);
+  const [loadingBranches, setLoadingBranches] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Fetch branches when entering edit mode on a remote project
+  useEffect(() => {
+    if (editing && isRemote) {
+      setLoadingBranches(true);
+      api.getProjectBranches(project.id)
+        .then((res) => setBranches(res.branches))
+        .catch(() => setBranches([]))
+        .finally(() => setLoadingBranches(false));
+    }
+  }, [editing, isRemote, project.id]);
 
   const handleSave = async () => {
     setSaving(true);
@@ -382,6 +396,7 @@ function ProjectInfo({ project, onUpdate }: { project: Project; onUpdate: () => 
       await api.updateProject(project.id, {
         name: editName !== project.name ? editName : undefined,
         description: editDesc !== (project.description || '') ? editDesc : undefined,
+        remote_branch: isRemote && editBranch !== (project.remote_branch || '') ? editBranch : undefined,
       } as Partial<Project>);
       onUpdate();
       setEditing(false);
@@ -395,6 +410,7 @@ function ProjectInfo({ project, onUpdate }: { project: Project; onUpdate: () => 
   const handleCancel = () => {
     setEditName(project.name);
     setEditDesc(project.description || '');
+    setEditBranch(project.remote_branch || '');
     setSaveError(null);
     setEditing(false);
   };
@@ -446,6 +462,31 @@ function ProjectInfo({ project, onUpdate }: { project: Project; onUpdate: () => 
                 rows={3}
               />
             </label>
+            {isRemote && (
+              <label className={styles.editLabel}>
+                Branch
+                {loadingBranches ? (
+                  <span className={styles.emptyValue}>Loading branches...</span>
+                ) : branches.length > 0 ? (
+                  <select
+                    className={styles.editInput}
+                    value={editBranch}
+                    onChange={e => setEditBranch(e.target.value)}
+                  >
+                    {branches.map(b => (
+                      <option key={b.name} value={b.name}>{b.name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    className={styles.editInput}
+                    value={editBranch}
+                    onChange={e => setEditBranch(e.target.value)}
+                    placeholder="main"
+                  />
+                )}
+              </label>
+            )}
           </div>
         ) : (
           <div className={styles.detailFields}>

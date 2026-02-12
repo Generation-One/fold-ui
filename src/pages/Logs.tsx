@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../stores/auth';
 import { useSSE, type JobLogEvent } from '../hooks/useSSE';
+import { useSSEStore } from '../stores/sse';
 import styles from './Logs.module.css';
 
 type LogLevel = 'all' | 'debug' | 'info' | 'warn' | 'error';
@@ -30,14 +31,15 @@ function isNoisyLog(message: string): boolean {
 
 export function Logs() {
   const { user } = useAuth();
-  const [logs, setLogs] = useState<JobLogEvent[]>([]);
+  // Seed with whatever the background buffer has already collected
+  const [logs, setLogs] = useState<JobLogEvent[]>(() => useSSEStore.getState().logBuffer);
   const [levelFilter, setLevelFilter] = useState<LogLevel>('all');
   const [jobFilter, setJobFilter] = useState<string>('');
   const [searchFilter, setSearchFilter] = useState<string>('');
   const [autoScroll, setAutoScroll] = useState(true);
   const [isPaused, setPaused] = useState(false);
   const [filterNoise, setFilterNoise] = useState(true);
-  const [isConnected, setIsConnected] = useState(false);
+  const sseStatus = useSSEStore((s) => s.connectionStatus);
 
   const logsEndRef = useRef<HTMLDivElement>(null);
   const logsContainerRef = useRef<HTMLDivElement>(null);
@@ -46,28 +48,19 @@ export function Logs() {
 
   // Handle new log events from SSE
   const handleJobLog = useCallback((event: JobLogEvent) => {
-    // Skip noisy logs if filter is enabled
-    if (filterNoise && isNoisyLog(event.message)) {
-      return;
-    }
-
     setLogs(prev => {
       const newLogs = [...prev, event];
-      // Keep only the last MAX_LOGS entries
       if (newLogs.length > MAX_LOGS) {
         return newLogs.slice(-MAX_LOGS);
       }
       return newLogs;
     });
-  }, [filterNoise]);
+  }, []);
 
-  // SSE connection
+  // SSE connection (connection status comes from the SSE store)
   useSSE({
     enabled: !isPaused,
     onJobLog: handleJobLog,
-    onOpen: () => setIsConnected(true),
-    onError: () => setIsConnected(false),
-    onReconnecting: () => setIsConnected(false),
   });
 
   // Auto-scroll to bottom when new logs arrive
@@ -103,8 +96,13 @@ export function Logs() {
     lastScrollTopRef.current = scrollTop;
   }, [autoScroll]);
 
-  // Filter logs based on level, job ID, and search text
+  // Filter logs based on noise, level, job ID, and search text
   const filteredLogs = logs.filter(log => {
+    // Noise filter
+    if (filterNoise && isNoisyLog(log.message)) {
+      return false;
+    }
+
     // Level filter
     if (levelFilter !== 'all' && log.level !== levelFilter) {
       return false;
@@ -185,9 +183,13 @@ export function Logs() {
           <p className={styles.pageSubtitle}>Real-time job logs via SSE</p>
         </div>
         <div className={styles.headerRight}>
-          <div className={`${styles.connectionStatus} ${isConnected ? styles.connected : styles.disconnected}`}>
+          <div className={`${styles.connectionStatus} ${styles[sseStatus]}`}>
             <span className={styles.statusDot} />
-            {isConnected ? 'Connected' : 'Disconnected'}
+            {sseStatus === 'connected'
+              ? 'Connected'
+              : sseStatus === 'reconnecting'
+              ? 'Reconnecting'
+              : 'Disconnected'}
           </div>
         </div>
       </div>
