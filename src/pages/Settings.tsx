@@ -258,6 +258,36 @@ export function Settings() {
     return new Date(account.token_expires_at) < new Date();
   };
 
+  const relativeTime = (iso: string) => {
+    const diff = Date.now() - new Date(iso).getTime();
+    const abs = Math.abs(diff);
+    const future = diff < 0;
+    if (abs < 60_000) return future ? 'in less than a minute' : 'just now';
+    const mins = Math.floor(abs / 60_000);
+    if (mins < 60) return future ? `in ${mins}m` : `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return future ? `in ${hrs}h ${mins % 60}m` : `${hrs}h ${mins % 60}m ago`;
+    const days = Math.floor(hrs / 24);
+    return future ? `in ${days}d` : `${days}d ago`;
+  };
+
+  const tokenExpiryLabel = (account: ConnectedAccount) => {
+    if (!account.token_expires_at) return null;
+    const expired = isTokenExpired(account);
+    return expired
+      ? `Expired ${relativeTime(account.token_expires_at)}`
+      : `Expires ${relativeTime(account.token_expires_at)}`;
+  };
+
+  // Auth providers for manage-access links
+  const githubProvider = providers?.providers?.find((p: { id: string }) => p.id === 'github');
+  const appSlug = githubProvider?.app_slug;
+  const manageAccessUrl = appSlug
+    ? `https://github.com/apps/${appSlug}/installations/new`
+    : githubProvider?.client_id
+      ? `https://github.com/settings/connections/applications/${githubProvider.client_id}`
+      : null;
+
   const handleBootstrap = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!bootstrapToken || !email || !name) return;
@@ -747,9 +777,11 @@ export function Settings() {
               )}
 
               {connectionsData && connectionsData.connections.length > 0 ? (
-                <div className={styles.providerList}>
+                <div className={styles.providerList} style={{ marginTop: '0.5rem' }}>
                   {connectionsData.connections.map((account) => {
                     const expired = isTokenExpired(account);
+                    const expiryLabel = tokenExpiryLabel(account);
+                    const isGitHubApp = !!account.installation_id;
                     return (
                       <div key={account.id} className={styles.providerItem}>
                         <div className={styles.providerHeader}>
@@ -765,14 +797,40 @@ export function Settings() {
                           </span>
                         </div>
                         <div className={styles.providerBody}>
-                          <div className={styles.providerMeta}>
-                            <span className={styles.providerType}>{account.provider}</span>
-                            {account.scopes && <span className={styles.providerAuth}>{account.scopes}</span>}
-                            <span className={styles.accountMeta}>
-                              Connected {new Date(account.created_at).toLocaleDateString()}
-                            </span>
+                          <div className={styles.providerInfo}>
+                            <div className={styles.providerMeta}>
+                              <span className={styles.providerType}>
+                                {isGitHubApp ? 'GitHub App' : account.provider}
+                              </span>
+                              {account.scopes && <span className={styles.providerAuth}>{account.scopes}</span>}
+                            </div>
+                            <div className={styles.accountDetails}>
+                              {expiryLabel && (
+                                <span className={`${styles.accountMeta} ${expired ? styles.accountExpired : ''}`}>
+                                  {expiryLabel}
+                                </span>
+                              )}
+                              <span className={styles.accountMeta}>
+                                Refreshed {relativeTime(account.updated_at)}
+                              </span>
+                              <span className={styles.accountMeta}>
+                                Connected {new Date(account.created_at).toLocaleDateString()}
+                              </span>
+                            </div>
                           </div>
                           <div className={styles.providerActions}>
+                            {account.provider === 'github' && manageAccessUrl && (
+                              <a
+                                href={manageAccessUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className={styles.testBtn}
+                                style={{ textDecoration: 'none' }}
+                                title={appSlug ? 'Manage repository access on GitHub' : 'Manage organisation access on GitHub'}
+                              >
+                                Manage
+                              </a>
+                            )}
                             <a
                               href={connectUrl(account.provider)}
                               target="_blank"

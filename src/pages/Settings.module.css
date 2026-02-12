@@ -655,7 +655,26 @@
   gap: 0.5rem;
 }
 
+.accountDetails {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
 .accountMeta {
   font-size: 0.7rem;
   color: var(--text-tertiary);
+}
+
+.accountExpired {
+  color: var(--status-error);
+}
+
+/* Align text link-buttons with icon buttons in account rows */
+.providerActions a.testBtn {
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+  box-sizing: border-box;
 }
