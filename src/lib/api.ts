@@ -1345,4 +1345,19 @@ export const api = {
     apiClient.request('PATCH', `/projects/${projectId}/members/${userId}`, {
       role,
     }),
+
+  // Project Group Members
+  listProjectGroupMembers: (projectId: string) =>
+    apiClient.request('GET', `/projects/${projectId}/group-members`),
+  addProjectGroupMember: (projectId: string, groupId: string, role: string) =>
+    apiClient.request('POST', `/projects/${projectId}/group-members`, {
+      group_id: groupId,
+      role,
+    }),
+  removeProjectGroupMember: (projectId: string, groupId: string) =>
+    apiClient.request('DELETE', `/projects/${projectId}/group-members/${groupId}`),
+  updateProjectGroupMemberRole: (projectId: string, groupId: string, role: string) =>
+    apiClient.request('PATCH', `/projects/${projectId}/group-members/${groupId}`, {
+      role,
+    }),
 };

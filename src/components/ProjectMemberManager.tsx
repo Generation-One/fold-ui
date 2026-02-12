@@ -12,6 +12,14 @@ interface ProjectMember {
   avatar_url?: string;
 }
 
+interface GroupMember {
+  group_id: string;
+  project_id: string;
+  role: string;
+  name: string;
+  description?: string;
+}
+
 interface User {
   id: string;
   email?: string;
@@ -34,6 +42,7 @@ type MemberType = 'user' | 'group';
 export function ProjectMemberManager({ projectId }: Props) {
   const { showToast } = useToast();
   const [members, setMembers] = useState<ProjectMember[]>([]);
+  const [groupMembers, setGroupMembers] = useState<GroupMember[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(false);
@@ -46,9 +55,14 @@ export function ProjectMemberManager({ projectId }: Props) {
   const loadMembers = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await api.listProjectMembers(projectId);
-      const membersList = response?.members || response || [];
+      const [userResponse, groupResponse] = await Promise.all([
+        api.listProjectMembers(projectId),
+        api.listProjectGroupMembers(projectId),
+      ]);
+      const membersList = userResponse?.members || userResponse || [];
       setMembers(Array.isArray(membersList) ? membersList : []);
+      const groupList = groupResponse?.group_members || groupResponse || [];
+      setGroupMembers(Array.isArray(groupList) ? groupList : []);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load members';
       showToast(message, 'error');
@@ -97,13 +111,13 @@ export function ProjectMemberManager({ projectId }: Props) {
         );
     } else {
       return groups
-        .filter(g => !members.some(m => m.user_id === g.id))
+        .filter(g => !groupMembers.some(m => m.group_id === g.id))
         .filter(g =>
           (g.name?.toLowerCase().includes(query) ||
            g.id.toLowerCase().includes(query))
         );
     }
-  }, [searchQuery, memberType, users, groups, members]);
+  }, [searchQuery, memberType, users, groups, members, groupMembers]);
 
   const handleAddMember = async () => {
     if (!selectedMember) {
@@ -112,7 +126,11 @@ export function ProjectMemberManager({ projectId }: Props) {
     }
 
     try {
-      await api.addProjectMember(projectId, selectedMember, selectedRole);
+      if (memberType === 'group') {
+        await api.addProjectGroupMember(projectId, selectedMember, selectedRole);
+      } else {
+        await api.addProjectMember(projectId, selectedMember, selectedRole);
+      }
       showToast(`${memberType === 'user' ? 'User' : 'Group'} added successfully`, 'success');
       setSelectedMember('');
       setSelectedRole('viewer');
@@ -134,6 +152,16 @@ export function ProjectMemberManager({ projectId }: Props) {
     }
   };
 
+  const handleUpdateGroupRole = async (groupId: string, newRole: string) => {
+    try {
+      await api.updateProjectGroupMemberRole(projectId, groupId, newRole);
+      showToast('Role updated', 'success');
+      await loadMembers();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to update role', 'error');
+    }
+  };
+
   const handleRemoveMember = async (memberId: string) => {
     if (!confirm('Remove this member from the project?')) return;
 
@@ -145,6 +173,20 @@ export function ProjectMemberManager({ projectId }: Props) {
       showToast(err instanceof Error ? err.message : 'Failed to remove member', 'error');
     }
   };
+
+  const handleRemoveGroupMember = async (groupId: string) => {
+    if (!confirm('Remove this group from the project?')) return;
+
+    try {
+      await api.removeProjectGroupMember(projectId, groupId);
+      showToast('Group removed', 'success');
+      await loadMembers();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to remove group', 'error');
+    }
+  };
+
+  const hasAnyMembers = members.length > 0 || groupMembers.length > 0;
 
   return (
     <div className={styles.container}>
@@ -266,7 +308,7 @@ export function ProjectMemberManager({ projectId }: Props) {
 
       {loading ? (
         <div className={styles.loading}>Loading members...</div>
-      ) : members.length > 0 ? (
+      ) : hasAnyMembers ? (
         <div className={styles.membersList}>
           {members.map((member) => (
             <div key={member.user_id} className={styles.memberCard}>
@@ -291,6 +333,36 @@ export function ProjectMemberManager({ projectId }: Props) {
                   className={styles.removeBtn}
                   onClick={() => handleRemoveMember(member.user_id)}
                   title="Remove member"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          ))}
+          {groupMembers.map((gm) => (
+            <div key={`group-${gm.group_id}`} className={styles.memberCard}>
+              <div className={styles.memberInfo}>
+                <div className={styles.memberName}>
+                  {gm.name}
+                  <span className={styles.groupBadge}>Group</span>
+                </div>
+                {gm.description && (
+                  <div className={styles.memberEmail}>{gm.description}</div>
+                )}
+              </div>
+              <div className={styles.memberActions}>
+                <select
+                  className={styles.roleSelect}
+                  value={gm.role}
+                  onChange={(e) => handleUpdateGroupRole(gm.group_id, e.target.value)}
+                >
+                  <option value="viewer">Viewer</option>
+                  <option value="member">Member</option>
+                </select>
+                <button
+                  className={styles.removeBtn}
+                  onClick={() => handleRemoveGroupMember(gm.group_id)}
+                  title="Remove group"
                 >
                   ✕
                 </button>

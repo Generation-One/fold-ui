@@ -284,6 +284,21 @@
   margin-top: 0.25rem;
 }
 
+.groupBadge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.125rem 0.5rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: rgba(0, 212, 255, 0.1);
+  color: var(--holo-cyan);
+  border: 1px solid rgba(0, 212, 255, 0.2);
+  border-radius: var(--radius-sm, 4px);
+  vertical-align: middle;
+}
+
 .memberActions {
   display: flex;
   align-items: center;

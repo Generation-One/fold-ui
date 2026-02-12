@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import useSWR from 'swr';
+import useSWR, { mutate } from 'swr';
 import { api } from '../lib/api';
 import type { Project, ProjectStatus } from '../lib/api';
 import { ProjectSettings } from '../components/ProjectSettings';
@@ -9,29 +9,46 @@ import { ProjectMemberManager } from '../components/ProjectMemberManager';
 import styles from './ProjectDetail.module.css';
 
 function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B';
+  if (!bytes || bytes === 0) return '0 B';
   const k = 1024;
   const sizes = ['B', 'KB', 'MB', 'GB'];
   const i = Math.floor(Math.log(bytes) / Math.log(k));
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 }
 
-function formatDuration(seconds: number): string {
+function formatDuration(seconds: number | undefined | null): string {
+  if (seconds == null || seconds === 0) return '--';
   if (seconds < 60) return `${seconds}s`;
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
   return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
 }
 
-function formatTimeAgo(dateStr: string): string {
+function formatTimeAgo(dateStr: string | undefined | null): string {
+  if (!dateStr) return '--';
   const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return '--';
   const now = new Date();
   const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
 
+  if (seconds < 0) return 'just now';
   if (seconds < 60) return 'just now';
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
   if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
   if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
   return date.toLocaleDateString();
+}
+
+function getRemoteUrl(project: { provider: string; remote_owner?: string; remote_repo?: string }): string | null {
+  if (!project.remote_owner || !project.remote_repo) return null;
+  if (project.provider === 'github') return `https://github.com/${project.remote_owner}/${project.remote_repo}`;
+  if (project.provider === 'gitlab') return `https://gitlab.com/${project.remote_owner}/${project.remote_repo}`;
+  return null;
+}
+
+function embeddedPercent(syncStatus: ProjectStatus['vector_db']['sync_status']): number {
+  if (syncStatus.in_sync) return 100;
+  if (!syncStatus.expected_count || syncStatus.expected_count === 0) return 0;
+  return Math.min(100, Math.round((syncStatus.vector_count / syncStatus.expected_count) * 100));
 }
 
 function ProjectStatusPanel({ projectId }: { projectId: string }) {
@@ -58,54 +75,138 @@ function ProjectStatusPanel({ projectId }: { projectId: string }) {
     );
   }
 
+  const pct = embeddedPercent(status.vector_db.sync_status);
+  const activeJobs = status.jobs.running + status.jobs.pending;
+
   return (
     <div className={styles.statusPanel}>
       <div className={styles.statusGrid}>
-      {/* Health Overview */}
+      {/* Health Overview - now includes job counts */}
       <div className={styles.statusCard}>
         <div className={styles.statusCardHeader}>
           <h3 className={styles.statusCardTitle}>Health</h3>
-          <span className={`${styles.healthBadge} ${styles[status.health.status]}`}>
-            {status.health.status}
-          </span>
+          <div className={styles.headerBadges}>
+            {activeJobs > 0 && (
+              <span className={styles.jobCountBadge}>
+                {status.jobs.running > 0 && <span className={styles.runningDot} />}
+                {activeJobs} job{activeJobs !== 1 ? 's' : ''}
+              </span>
+            )}
+            <span className={`${styles.healthBadge} ${styles[status.health.status]}`}>
+              {status.health.status}
+            </span>
+          </div>
         </div>
         <div className={styles.statusCardBody}>
           <div className={styles.healthChecks}>
             <div className={styles.healthCheck}>
               <span className={status.health.accessible ? styles.checkOk : styles.checkFail}>
-                {status.health.accessible ? '✓' : '✗'}
+                {status.health.accessible ? '\u2713' : '\u2717'}
               </span>
               <span>Root path accessible</span>
             </div>
             <div className={styles.healthCheck}>
               <span className={status.health.vector_collection_exists ? styles.checkOk : styles.checkFail}>
-                {status.health.vector_collection_exists ? '✓' : '✗'}
+                {status.health.vector_collection_exists ? '\u2713' : '\u2717'}
               </span>
               <span>Vector collection</span>
             </div>
             <div className={styles.healthCheck}>
               <span className={!status.health.has_recent_failures ? styles.checkOk : styles.checkFail}>
-                {!status.health.has_recent_failures ? '✓' : '✗'}
+                {!status.health.has_recent_failures ? '\u2713' : '\u2717'}
               </span>
               <span>No recent failures</span>
             </div>
             {status.health.indexing_in_progress && (
               <div className={styles.healthCheck}>
-                <span className={styles.checkProgress}>⟳</span>
+                <span className={styles.checkProgress}>{'\u27F3'}</span>
                 <span>Indexing in progress</span>
               </div>
             )}
           </div>
+          {/* Job summary within health */}
+          {(status.jobs.completed_24h > 0 || status.jobs.failed_24h > 0) && (
+            <div className={styles.jobSummary}>
+              <span className={styles.jobSummaryItem}>
+                {status.jobs.completed_24h} completed
+              </span>
+              {status.jobs.failed_24h > 0 && (
+                <span className={`${styles.jobSummaryItem} ${styles.jobSummaryError}`}>
+                  {status.jobs.failed_24h} failed
+                </span>
+              )}
+              <span className={styles.jobSummaryLabel}>past 24h</span>
+            </div>
+          )}
           {status.health.issues.length > 0 && (
             <div className={styles.healthIssues}>
               {status.health.issues.map((issue, i) => (
                 <div key={i} className={styles.healthIssue}>
-                  <span className={styles.issueIcon}>⚠</span>
+                  <span className={styles.issueIcon}>{'\u26A0'}</span>
                   {issue}
                 </div>
               ))}
             </div>
           )}
+        </div>
+      </div>
+
+      {/* Indexing & Files - merged card */}
+      <div className={styles.statusCard}>
+        <div className={styles.statusCardHeader}>
+          <h3 className={styles.statusCardTitle}>Indexing</h3>
+          {status.indexing.in_progress && (
+            <span className={styles.indexingBadge}>In Progress</span>
+          )}
+        </div>
+        <div className={styles.statusCardBody}>
+        {status.indexing.in_progress ? (
+          <div className={styles.indexingProgress}>
+            <div className={styles.progressBar}>
+              <div
+                className={styles.progressFill}
+                style={{ width: `${status.indexing.progress || 0}%` }}
+              />
+            </div>
+            <span className={styles.progressText}>
+              {status.indexing.progress != null && status.indexing.progress > 0
+                ? `${status.indexing.progress}%`
+                : 'Starting...'}
+            </span>
+          </div>
+        ) : (
+          <div className={styles.indexingInfo}>
+            <div className={styles.indexStat}>
+              <span className={styles.indexLabel}>Last indexed</span>
+              <span className={styles.indexValue}>{formatTimeAgo(status.indexing.last_indexed_at)}</span>
+            </div>
+            <div className={styles.indexStat}>
+              <span className={styles.indexLabel}>Duration</span>
+              <span className={styles.indexValue}>{formatDuration(status.indexing.last_duration_secs)}</span>
+            </div>
+          </div>
+        )}
+        {/* Filesystem stats inline */}
+        {status.filesystem && (
+          <div className={styles.filesystemInline}>
+            <div className={styles.fileStatRow}>
+              <span className={styles.indexLabel}>Indexable files</span>
+              <span className={styles.indexValue}>
+                {status.filesystem.root_exists ? status.filesystem.indexable_files_estimate.toLocaleString() : '--'}
+              </span>
+            </div>
+            <div className={styles.fileStatRow}>
+              <span className={styles.indexLabel}>Indexed memories</span>
+              <span className={styles.indexValue}>{status.database.total_memories.toLocaleString()}</span>
+            </div>
+            {status.filesystem.fold_dir_exists && (
+              <div className={styles.fileStatRow}>
+                <span className={styles.indexLabel}>fold/ size</span>
+                <span className={styles.indexValue}>{formatBytes(status.filesystem.fold_dir_size_bytes)}</span>
+              </div>
+            )}
+          </div>
+        )}
         </div>
       </div>
 
@@ -121,10 +222,6 @@ function ProjectStatusPanel({ projectId }: { projectId: string }) {
             <span className={styles.statLabel}>Memories</span>
           </div>
           <div className={styles.statItem}>
-            <span className={styles.statValue}>{status.database.total_chunks}</span>
-            <span className={styles.statLabel}>Chunks</span>
-          </div>
-          <div className={styles.statItem}>
             <span className={styles.statValue}>{status.database.total_links}</span>
             <span className={styles.statLabel}>Links</span>
           </div>
@@ -133,34 +230,38 @@ function ProjectStatusPanel({ projectId }: { projectId: string }) {
             <span className={styles.statLabel}>Est. Size</span>
           </div>
         </div>
-        <div className={styles.memoryBreakdown}>
-          <h4 className={styles.breakdownTitle}>By Type</h4>
-          <div className={styles.breakdownGrid}>
-            {Object.entries(status.database.memories_by_type).map(([type, count]) => (
-              count > 0 && (
-                <div key={type} className={styles.breakdownItem}>
-                  <span className={styles.breakdownLabel}>{type}</span>
-                  <span className={styles.breakdownValue}>{count}</span>
-                </div>
-              )
-            ))}
+        <div className={styles.breakdownRow}>
+          <div className={styles.memoryBreakdown}>
+            <h4 className={styles.breakdownTitle}>By Type</h4>
+            <div className={styles.breakdownGrid}>
+              {Object.entries(status.database.memories_by_type).map(([type, count]) => (
+                count > 0 && (
+                  <div key={type} className={styles.breakdownItem}>
+                    <span className={styles.breakdownLabel}>{type}</span>
+                    <span className={styles.breakdownValue}>{count}</span>
+                  </div>
+                )
+              ))}
+            </div>
           </div>
-          <h4 className={styles.breakdownTitle}>By Source</h4>
-          <div className={styles.breakdownGrid}>
-            {Object.entries(status.database.memories_by_source).map(([source, count]) => (
-              count > 0 && (
-                <div key={source} className={styles.breakdownItem}>
-                  <span className={styles.breakdownLabel}>{source}</span>
-                  <span className={styles.breakdownValue}>{count}</span>
-                </div>
-              )
-            ))}
+          <div className={styles.memoryBreakdown}>
+            <h4 className={styles.breakdownTitle}>By Source</h4>
+            <div className={styles.breakdownGrid}>
+              {Object.entries(status.database.memories_by_source).map(([source, count]) => (
+                count > 0 && (
+                  <div key={source} className={styles.breakdownItem}>
+                    <span className={styles.breakdownLabel}>{source}</span>
+                    <span className={styles.breakdownValue}>{count}</span>
+                  </div>
+                )
+              ))}
+            </div>
           </div>
         </div>
         </div>
       </div>
 
-      {/* Vector DB Stats */}
+      {/* Vector DB Stats - fixed embedded % */}
       <div className={styles.statusCard}>
         <div className={styles.statusCardHeader}>
           <h3 className={styles.statusCardTitle}>Vector Database</h3>
@@ -168,151 +269,40 @@ function ProjectStatusPanel({ projectId }: { projectId: string }) {
         <div className={styles.statusCardBody}>
         <div className={styles.statsGrid}>
           <div className={styles.statItem}>
-            <span className={styles.statValue}>{status.vector_db.total_vectors}</span>
+            <span className={styles.statValue}>{status.vector_db.total_vectors.toLocaleString()}</span>
             <span className={styles.statLabel}>Vectors</span>
           </div>
           <div className={styles.statItem}>
-            <span className={styles.statValue}>{status.vector_db.dimension}</span>
+            <span className={styles.statValue}>{status.vector_db.dimension || '--'}</span>
             <span className={styles.statLabel}>Dimensions</span>
           </div>
           <div className={styles.statItem}>
-            <span className={status.vector_db.sync_status.in_sync ? styles.statValueOk : styles.statValueWarn}>
-              {status.vector_db.sync_status.in_sync
-                ? '100%'
-                : `${status.vector_db.sync_status.expected_count > 0
-                    ? Math.round((status.vector_db.sync_status.vector_count / status.vector_db.sync_status.expected_count) * 100)
-                    : 0}%`}
+            <span className={pct === 100 ? styles.statValueOk : pct > 0 ? styles.statValueWarn : styles.statValue}>
+              {pct}%
             </span>
             <span className={styles.statLabel}>Embedded</span>
           </div>
         </div>
+        {pct < 100 && pct > 0 && (
+          <div className={styles.syncProgress}>
+            <div className={styles.progressBar}>
+              <div className={styles.progressFill} style={{ width: `${pct}%` }} />
+            </div>
+            <span className={styles.syncDetail}>
+              {status.vector_db.sync_status.vector_count.toLocaleString()} / {status.vector_db.sync_status.expected_count.toLocaleString()} vectors
+            </span>
+          </div>
+        )}
         <div className={styles.collectionInfo}>
           <code className={styles.collectionName}>{status.vector_db.collection_name}</code>
         </div>
         </div>
       </div>
 
-      {/* Jobs Stats */}
+      {/* Activity - recent jobs + timeline merged */}
       <div className={styles.statusCard}>
         <div className={styles.statusCardHeader}>
-          <h3 className={styles.statusCardTitle}>Jobs</h3>
-        </div>
-        <div className={styles.statusCardBody}>
-        <div className={styles.statsGrid}>
-          <div className={styles.statItem}>
-            <span className={styles.statValue}>{status.jobs.running}</span>
-            <span className={styles.statLabel}>Running</span>
-          </div>
-          <div className={styles.statItem}>
-            <span className={styles.statValue}>{status.jobs.pending}</span>
-            <span className={styles.statLabel}>Pending</span>
-          </div>
-          <div className={styles.statItem}>
-            <span className={styles.statValue}>{status.jobs.completed_24h}</span>
-            <span className={styles.statLabel}>Done (24h)</span>
-          </div>
-          <div className={styles.statItem}>
-            <span className={status.jobs.failed_24h === 0 ? styles.statValue : styles.statValueError}>
-              {status.jobs.failed_24h}
-            </span>
-            <span className={styles.statLabel}>Failed (24h)</span>
-          </div>
-        </div>
-        {status.recent_jobs.length > 0 && (
-          <div className={styles.recentJobs}>
-            <h4 className={styles.breakdownTitle}>Recent</h4>
-            {status.recent_jobs.slice(0, 5).map((job) => (
-              <div key={job.id} className={styles.recentJob}>
-                <span className={`${styles.jobStatus} ${styles[`job_${job.status}`]}`} />
-                <span className={styles.jobType}>{job.job_type.replace(/_/g, ' ')}</span>
-                <span className={styles.jobTime}>
-                  {job.completed_at ? formatTimeAgo(job.completed_at) : formatTimeAgo(job.created_at)}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-        </div>
-      </div>
-
-      {/* Filesystem Stats */}
-      {status.filesystem && (
-        <div className={styles.statusCard}>
-          <div className={styles.statusCardHeader}>
-            <h3 className={styles.statusCardTitle}>Filesystem</h3>
-          </div>
-          <div className={styles.statusCardBody}>
-          <div className={styles.statsGrid}>
-            <div className={styles.statItem}>
-              <span className={status.filesystem.root_exists ? styles.statValueOk : styles.statValueError}>
-                {status.filesystem.root_exists ? 'Yes' : 'No'}
-              </span>
-              <span className={styles.statLabel}>Root Exists</span>
-            </div>
-            <div className={styles.statItem}>
-              <span className={status.filesystem.fold_dir_exists ? styles.statValueOk : styles.statValueWarn}>
-                {status.filesystem.fold_dir_exists ? 'Yes' : 'No'}
-              </span>
-              <span className={styles.statLabel}>fold/ Dir</span>
-            </div>
-            <div className={styles.statItem}>
-              <span className={styles.statValue}>~{status.filesystem.indexable_files_estimate}</span>
-              <span className={styles.statLabel}>Indexable Files</span>
-            </div>
-            <div className={styles.statItem}>
-              <span className={styles.statValue}>{formatBytes(status.filesystem.fold_dir_size_bytes)}</span>
-              <span className={styles.statLabel}>fold/ Size</span>
-            </div>
-          </div>
-          </div>
-        </div>
-      )}
-
-      {/* Indexing Status */}
-      <div className={styles.statusCard}>
-        <div className={styles.statusCardHeader}>
-          <h3 className={styles.statusCardTitle}>Indexing</h3>
-        </div>
-        <div className={styles.statusCardBody}>
-        {status.indexing.in_progress ? (
-          <div className={styles.indexingProgress}>
-            <div className={styles.progressBar}>
-              <div
-                className={styles.progressFill}
-                style={{ width: `${status.indexing.progress || 0}%` }}
-              />
-            </div>
-            <span className={styles.progressText}>
-              {status.indexing.progress !== undefined ? `${status.indexing.progress}%` : 'Processing...'}
-            </span>
-          </div>
-        ) : (
-          <div className={styles.indexingInfo}>
-            {status.indexing.last_indexed_at ? (
-              <>
-                <div className={styles.indexStat}>
-                  <span className={styles.indexLabel}>Last indexed</span>
-                  <span className={styles.indexValue}>{formatTimeAgo(status.indexing.last_indexed_at)}</span>
-                </div>
-                {status.indexing.last_duration_secs && (
-                  <div className={styles.indexStat}>
-                    <span className={styles.indexLabel}>Duration</span>
-                    <span className={styles.indexValue}>{formatDuration(status.indexing.last_duration_secs)}</span>
-                  </div>
-                )}
-              </>
-            ) : (
-              <span className={styles.neverIndexed}>Never indexed</span>
-            )}
-          </div>
-        )}
-        </div>
-      </div>
-
-      {/* Timestamps */}
-      <div className={styles.statusCard}>
-        <div className={styles.statusCardHeader}>
-          <h3 className={styles.statusCardTitle}>Timeline</h3>
+          <h3 className={styles.statusCardTitle}>Activity</h3>
         </div>
         <div className={styles.statusCardBody}>
         <div className={styles.timeline}>
@@ -332,13 +322,24 @@ function ProjectStatusPanel({ projectId }: { projectId: string }) {
               <span className={styles.timelineValue}>{formatTimeAgo(status.timestamps.last_memory_created_at)}</span>
             </div>
           )}
-          {status.timestamps.last_job_completed_at && (
-            <div className={styles.timelineItem}>
-              <span className={styles.timelineLabel}>Last Job Done</span>
-              <span className={styles.timelineValue}>{formatTimeAgo(status.timestamps.last_job_completed_at)}</span>
-            </div>
-          )}
         </div>
+        {status.recent_jobs.length > 0 && (
+          <div className={styles.recentJobs}>
+            <h4 className={styles.breakdownTitle}>Recent Jobs</h4>
+            {status.recent_jobs.slice(0, 3).map((job) => (
+              <div key={job.id} className={styles.recentJob}>
+                <span className={`${styles.jobStatus} ${styles[`job_${job.status}`]}`} />
+                <span className={styles.jobType}>{job.job_type.replace(/_/g, ' ')}</span>
+                {job.progress != null && job.status === 'running' && (
+                  <span className={styles.jobProgress}>{job.progress}%</span>
+                )}
+                <span className={styles.jobTime}>
+                  {formatTimeAgo(job.completed_at || job.created_at)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
         </div>
       </div>
       </div>
@@ -346,11 +347,102 @@ function ProjectStatusPanel({ projectId }: { projectId: string }) {
   );
 }
 
-function ProjectInfo({ project }: { project: Project }) {
+function ProjectInfo({ project, onUpdate }: { project: Project; onUpdate: () => void }) {
   const isRemote = project.provider !== 'local';
+  const remoteUrl = getRemoteUrl(project);
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState(project.name);
+  const [editDesc, setEditDesc] = useState(project.description || '');
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await api.updateProject(project.id, {
+        name: editName !== project.name ? editName : undefined,
+        description: editDesc !== (project.description || '') ? editDesc : undefined,
+      } as Partial<Project>);
+      onUpdate();
+      setEditing(false);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : 'Failed to save');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setEditName(project.name);
+    setEditDesc(project.description || '');
+    setSaveError(null);
+    setEditing(false);
+  };
 
   return (
     <div className={styles.infoPanel}>
+      {/* Editable fields */}
+      <div className={styles.infoSection}>
+        <div className={styles.sectionTitleRow}>
+          <h3 className={styles.sectionTitle}>Details</h3>
+          {!editing ? (
+            <button className={styles.editBtn} onClick={() => setEditing(true)}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7" />
+                <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
+              </svg>
+              Edit
+            </button>
+          ) : (
+            <div className={styles.editActions}>
+              <button className={styles.saveBtn} onClick={handleSave} disabled={saving}>
+                {saving ? 'Saving...' : 'Save'}
+              </button>
+              <button className={styles.cancelBtn} onClick={handleCancel} disabled={saving}>
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
+        {saveError && <div className={styles.saveError}>{saveError}</div>}
+        {editing ? (
+          <div className={styles.editForm}>
+            <label className={styles.editLabel}>
+              Name
+              <input
+                className={styles.editInput}
+                value={editName}
+                onChange={e => setEditName(e.target.value)}
+                placeholder="Project name"
+              />
+            </label>
+            <label className={styles.editLabel}>
+              Description
+              <textarea
+                className={styles.editTextarea}
+                value={editDesc}
+                onChange={e => setEditDesc(e.target.value)}
+                placeholder="Project description (optional)"
+                rows={3}
+              />
+            </label>
+          </div>
+        ) : (
+          <div className={styles.detailFields}>
+            <div className={styles.detailRow}>
+              <span className={styles.detailLabel}>Name</span>
+              <span className={styles.detailValue}>{project.name}</span>
+            </div>
+            <div className={styles.detailRow}>
+              <span className={styles.detailLabel}>Description</span>
+              <span className={styles.detailValue}>{project.description || <span className={styles.emptyValue}>No description</span>}</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Provider info */}
       <div className={styles.infoSection}>
         <h3 className={styles.sectionTitle}>Provider</h3>
         <div className={styles.providerInfo}>
@@ -382,14 +474,32 @@ function ProjectInfo({ project }: { project: Project }) {
         <div className={styles.infoSection}>
           <h3 className={styles.sectionTitle}>Remote Repository</h3>
           <div className={styles.remoteInfo}>
-            <span className={styles.remoteName}>{project.remote_owner}/{project.remote_repo}</span>
+            {remoteUrl ? (
+              <a
+                href={remoteUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={styles.remoteLink}
+              >
+                {project.remote_owner}/{project.remote_repo}
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" />
+                  <polyline points="15 3 21 3 21 9" />
+                  <line x1="10" y1="14" x2="21" y2="3" />
+                </svg>
+              </a>
+            ) : (
+              <span className={styles.remoteName}>{project.remote_owner}/{project.remote_repo}</span>
+            )}
             {project.remote_branch && (
               <span className={styles.branchBadge}>{project.remote_branch}</span>
             )}
           </div>
+          <a href="/settings" className={styles.accountLink}>
+            Manage connected accounts
+          </a>
         </div>
       )}
-
     </div>
   );
 }
@@ -446,6 +556,10 @@ export function ProjectDetail() {
     () => (projectId ? api.getProject(projectId) : Promise.reject())
   );
 
+  const refreshProject = useCallback(() => {
+    mutate(`project-${projectId}`);
+  }, [projectId]);
+
   const handleIndex = async () => {
     if (!project) return;
     const isRemote = project.provider !== 'local';
@@ -492,6 +606,8 @@ export function ProjectDetail() {
     );
   }
 
+  const remoteUrl = getRemoteUrl(project);
+
   return (
     <motion.div
       className={styles.container}
@@ -508,7 +624,22 @@ export function ProjectDetail() {
         </button>
         <div className={styles.titleSection}>
           <h1 className={styles.projectName}>{project.name}</h1>
-          <p className={styles.projectSlug}>{project.slug}</p>
+          <div className={styles.slugRow}>
+            <p className={styles.projectSlug}>{project.slug}</p>
+            {remoteUrl && (
+              <a
+                href={remoteUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={styles.headerRepoLink}
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
+                  <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+                </svg>
+                {project.remote_owner}/{project.remote_repo}
+              </a>
+            )}
+          </div>
         </div>
         <button
           className={styles.headerActionBtn}
@@ -600,7 +731,7 @@ export function ProjectDetail() {
       {/* Tab Content */}
       <div className={styles.tabContent}>
         {tab === 'status' && <ProjectStatusPanel projectId={projectId!} />}
-        {tab === 'info' && <ProjectInfo project={project} />}
+        {tab === 'info' && <ProjectInfo project={project} onUpdate={refreshProject} />}
         {tab === 'members' && (
           <ProjectMemberManager projectId={projectId!} />
         )}
