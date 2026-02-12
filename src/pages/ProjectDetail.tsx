@@ -560,6 +560,132 @@ function ProjectInfo({ project, onUpdate }: { project: Project; onUpdate: () => 
           </a>
         </div>
       )}
+
+      {isRemote && <WebhookInfo project={project} onUpdate={onUpdate} />}
+    </div>
+  );
+}
+
+function WebhookInfo({ project, onUpdate }: { project: Project; onUpdate: () => void }) {
+  const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(true);
+  const [status, setStatus] = useState<{
+    registered: boolean;
+    webhook_id?: string;
+    webhook_url: string;
+    verified?: boolean;
+    events?: string[];
+  } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const checkStatus = useCallback(async () => {
+    setChecking(true);
+    setError(null);
+    try {
+      const result = await api.getWebhookStatus(project.id);
+      setStatus(result);
+    } catch {
+      setStatus(null);
+    } finally {
+      setChecking(false);
+    }
+  }, [project.id]);
+
+  useEffect(() => {
+    checkStatus();
+  }, [checkStatus]);
+
+  const handleRegister = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      await api.createWebhook(project.id);
+      await checkStatus();
+      onUpdate();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to register webhook');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      await api.deleteWebhook(project.id);
+      await checkStatus();
+      onUpdate();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to delete webhook');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const isRegistered = status?.registered ?? project.webhook_registered ?? false;
+
+  return (
+    <div className={styles.infoSection}>
+      <h3 className={styles.sectionTitle}>Webhook</h3>
+      <div className={styles.webhookStatus}>
+        <div className={styles.webhookStatusRow}>
+          <span
+            className={`${styles.webhookDot} ${isRegistered ? styles.webhookDotActive : styles.webhookDotInactive}`}
+          />
+          <span className={styles.webhookStatusText}>
+            {checking ? 'Checking...' : isRegistered ? 'Registered' : 'Not registered'}
+          </span>
+          {status?.verified && isRegistered && (
+            <span className={styles.webhookVerified}>Verified</span>
+          )}
+        </div>
+
+        {status?.webhook_url && (
+          <code className={styles.webhookUrl}>{status.webhook_url}</code>
+        )}
+
+        {status?.events && status.events.length > 0 && (
+          <div className={styles.webhookEvents}>
+            {status.events.map((e) => (
+              <span key={e} className={styles.webhookEventBadge}>{e}</span>
+            ))}
+          </div>
+        )}
+
+        {error && <div className={styles.webhookError}>{error}</div>}
+
+        <div className={styles.webhookActions}>
+          {isRegistered ? (
+            <button
+              className={styles.webhookDeleteBtn}
+              onClick={handleDelete}
+              disabled={loading || checking}
+            >
+              {loading ? 'Removing...' : 'Remove Webhook'}
+            </button>
+          ) : (
+            <button
+              className={styles.webhookRegisterBtn}
+              onClick={handleRegister}
+              disabled={loading || checking}
+            >
+              {loading ? 'Registering...' : 'Register Webhook'}
+            </button>
+          )}
+          <button
+            className={styles.webhookCheckBtn}
+            onClick={checkStatus}
+            disabled={loading || checking}
+            title="Re-check webhook status"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <polyline points="23 4 23 10 17 10" />
+              <path d="M20.49 15a9 9 0 11-2.12-9.36L23 10" />
+            </svg>
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

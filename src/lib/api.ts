@@ -84,6 +84,8 @@ export interface Project {
   remote_branch?: string;
   /** Author patterns to ignore during webhook processing */
   ignored_commit_authors?: string[];
+  /** Whether a webhook is registered on the remote provider */
+  webhook_registered?: boolean;
   memory_count?: number;
   created_at: string;
   updated_at: string;
@@ -898,57 +900,27 @@ class FoldApiClient {
     });
   }
 
-  // Repository commits and PRs
-  async listRepositoryCommits(
-    projectId: string,
-    repoId: string,
-    params: { branch?: string; page?: number; per_page?: number } = {}
-  ): Promise<{
-    commits: Array<{
-      sha: string;
-      message: string;
-      author_name: string;
-      author_email: string;
-      committed_at: string;
-      url: string;
-    }>;
-    page: number;
-    per_page: number;
-    has_more: boolean;
+  // Webhook management
+  async getWebhookStatus(projectId: string): Promise<{
+    registered: boolean;
+    webhook_id?: string;
+    webhook_url: string;
+    verified?: boolean;
+    events?: string[];
   }> {
-    const query = new URLSearchParams();
-    if (params.branch) query.set('branch', params.branch);
-    if (params.page) query.set('page', String(params.page));
-    if (params.per_page) query.set('per_page', String(params.per_page));
-    return this._fetch(`/projects/${projectId}/repositories/${repoId}/commits?${query}`);
+    return this._fetch(`/projects/${projectId}/webhook`);
   }
 
-  async listRepositoryPullRequests(
-    projectId: string,
-    repoId: string,
-    params: { state?: 'open' | 'closed' | 'merged' | 'all'; page?: number; per_page?: number } = {}
-  ): Promise<{
-    pull_requests: Array<{
-      number: number;
-      title: string;
-      state: 'open' | 'closed' | 'merged';
-      author: string;
-      head_branch: string;
-      base_branch: string;
-      created_at: string;
-      updated_at: string;
-      merged_at?: string;
-      url: string;
-    }>;
-    page: number;
-    per_page: number;
-    has_more: boolean;
+  async createWebhook(projectId: string): Promise<{
+    registered: boolean;
+    webhook_id: string;
+    webhook_url: string;
   }> {
-    const query = new URLSearchParams();
-    if (params.state) query.set('state', params.state);
-    if (params.page) query.set('page', String(params.page));
-    if (params.per_page) query.set('per_page', String(params.per_page));
-    return this._fetch(`/projects/${projectId}/repositories/${repoId}/pulls?${query}`);
+    return this._fetch(`/projects/${projectId}/webhook`, { method: 'POST' });
+  }
+
+  async deleteWebhook(projectId: string): Promise<{ deleted: boolean }> {
+    return this._fetch(`/projects/${projectId}/webhook`, { method: 'DELETE' });
   }
 
   // File source providers
@@ -1214,11 +1186,10 @@ export const api = {
   deleteEmbeddingProvider: (id: string) => apiClient.deleteEmbeddingProvider(id),
   testEmbeddingProvider: (id: string) => apiClient.testEmbeddingProvider(id),
 
-  // Repository commits/PRs
-  listRepositoryCommits: (projectId: string, repoId: string, params?: any) =>
-    apiClient.listRepositoryCommits(projectId, repoId, params),
-  listRepositoryPullRequests: (projectId: string, repoId: string, params?: any) =>
-    apiClient.listRepositoryPullRequests(projectId, repoId, params),
+  // Webhooks
+  getWebhookStatus: (projectId: string) => apiClient.getWebhookStatus(projectId),
+  createWebhook: (projectId: string) => apiClient.createWebhook(projectId),
+  deleteWebhook: (projectId: string) => apiClient.deleteWebhook(projectId),
 
   // File sources
   listFileSourceProviders: () => apiClient.listFileSourceProviders(),
