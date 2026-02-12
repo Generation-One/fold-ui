@@ -299,10 +299,10 @@ function ProjectStatusPanel({ projectId }: { projectId: string }) {
         </div>
       </div>
 
-      {/* Activity - recent jobs + timeline merged */}
+      {/* Timeline */}
       <div className={styles.statusCard}>
         <div className={styles.statusCardHeader}>
-          <h3 className={styles.statusCardTitle}>Activity</h3>
+          <h3 className={styles.statusCardTitle}>Timeline</h3>
         </div>
         <div className={styles.statusCardBody}>
         <div className={styles.timeline}>
@@ -323,15 +323,32 @@ function ProjectStatusPanel({ projectId }: { projectId: string }) {
             </div>
           )}
         </div>
-        {status.recent_jobs.length > 0 && (
-          <div className={styles.recentJobs}>
-            <h4 className={styles.breakdownTitle}>Recent Jobs</h4>
-            {status.recent_jobs.slice(0, 3).map((job) => (
+        </div>
+      </div>
+
+      {/* Recent Jobs */}
+      <div className={styles.statusCard}>
+        <div className={styles.statusCardHeader}>
+          <h3 className={styles.statusCardTitle}>Recent Jobs</h3>
+          {activeJobs > 0 && (
+            <span className={styles.jobCountBadge}>
+              {status.jobs.running > 0 && <span className={styles.runningDot} />}
+              {activeJobs} active
+            </span>
+          )}
+        </div>
+        <div className={styles.statusCardBody}>
+        {status.recent_jobs.length > 0 ? (
+          <div className={styles.jobList}>
+            {status.recent_jobs.slice(0, 6).map((job) => (
               <div key={job.id} className={styles.recentJob}>
                 <span className={`${styles.jobStatus} ${styles[`job_${job.status}`]}`} />
                 <span className={styles.jobType}>{job.job_type.replace(/_/g, ' ')}</span>
                 {job.progress != null && job.status === 'running' && (
                   <span className={styles.jobProgress}>{job.progress}%</span>
+                )}
+                {job.error && (
+                  <span className={styles.jobError} title={job.error}>err</span>
                 )}
                 <span className={styles.jobTime}>
                   {formatTimeAgo(job.completed_at || job.created_at)}
@@ -339,6 +356,8 @@ function ProjectStatusPanel({ projectId }: { projectId: string }) {
               </div>
             ))}
           </div>
+        ) : (
+          <span className={styles.emptyJobs}>No recent jobs</span>
         )}
         </div>
       </div>

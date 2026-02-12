@@ -866,9 +866,9 @@
 }
 
 .breakdownGrid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
 }
 
 .breakdownItem {
@@ -913,6 +913,29 @@
 }
 
 /* Recent Jobs */
+.jobList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.emptyJobs {
+  display: block;
+  text-align: center;
+  padding: 1.5rem 1rem;
+  font-size: 0.85rem;
+  color: var(--text-tertiary);
+}
+
+.jobError {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--status-error);
+  padding: 0.125rem 0.375rem;
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: var(--radius-sm);
+}
+
 .recentJobs {
   display: flex;
   flex-direction: column;
