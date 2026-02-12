@@ -2,22 +2,24 @@
 
 A holographic memory system interface for the [Fold](https://github.com/Generation-One/fold) semantic memory server.
 
-![Fold UI](https://img.shields.io/badge/React-18-blue) ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue) ![Vite](https://img.shields.io/badge/Vite-6-purple)
+![Fold UI](https://img.shields.io/badge/React-19-blue) ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue) ![Vite](https://img.shields.io/badge/Vite-7-purple)
 
 ## Features
 
 - **Dashboard** - System overview with status, jobs, and quick actions
 - **Projects** - Create and manage memory projects
+- **Project Detail** - Per-project view with memory browser, members, and repositories
 - **Memories** - Browse, create, and search semantic memories
 - **Search** - Semantic search across project memories
-- **Graph** - Interactive visualization of memory relationships
 - **Jobs** - Monitor background indexing and processing jobs
-- **MCP Tester** - Test MCP tools via JSON-RPC 2.0 protocol
+- **MCP Tester** - Client setup guides and interactive tool testing via JSON-RPC 2.0
+- **Admin Panel** - User, group, and system administration
+- **Logs** - Real-time system event log via SSE
 - **Settings** - Authentication and API configuration
 
 ## Tech Stack
 
-- **React 18** with TypeScript
+- **React 19** with TypeScript
 - **Vite** for fast development and builds
 - **Zustand** for state management with persistence
 - **SWR** for data fetching with caching
@@ -67,7 +69,7 @@ cd fold-ui
 docker compose up -d --build
 ```
 
-### Option B: Local Development
+### Option C: Local Development
 
 Prerequisites: Node.js 18+
 
@@ -93,7 +95,7 @@ Start development server:
 npm run dev
 ```
 
-Opens at http://localhost:5174
+Opens at http://localhost:5173
 
 ### Build
 
@@ -129,20 +131,22 @@ The UI uses a "Crystalline Holographic" design with:
 
 - Dark surfaces with subtle transparency
 - Cyan/violet holographic accent gradients
-- JetBrains Mono for code, Instrument Serif for titles
+- JetBrains Mono for code, Instrument Serif for headings, Syne for UI text
 - Smooth Framer Motion transitions
 - Responsive grid layouts
 
 ### CSS Variables
 
-Key theme variables defined in `index.css`:
+Key theme variables defined in `src/styles/globals.css`:
 
 ```css
---background: #0a0a0f
---surface: rgba(20, 20, 30, 0.8)
+--void: #0a0a0f
+--surface: #1a1a24
 --holo-cyan: #00d4ff
---holo-violet: #a855f7
---gradient-holo: linear-gradient(135deg, #00d4ff, #a855f7)
+--holo-magenta: #ff00aa
+--holo-gold: #ffd700
+--holo-violet: #8b5cf6
+--gradient-holo: linear-gradient(135deg, var(--holo-cyan), var(--holo-violet), var(--holo-magenta))
 ```
 
 ## Project Structure
@@ -150,25 +154,34 @@ Key theme variables defined in `index.css`:
 ```
 src/
 ├── components/
-│   ├── Layout.tsx          # App shell with sidebar
+│   ├── Layout.tsx           # App shell with sidebar
+│   ├── SSEProvider.tsx      # Real-time event streaming
+│   ├── Toast.tsx            # Notification system
 │   └── ui/                  # Shared UI components
+├── hooks/
+│   └── useSSE.ts            # SSE hook for live updates
 ├── lib/
-│   └── api.ts              # API client and types
+│   └── api.ts               # API client and types
 ├── pages/
 │   ├── Dashboard.tsx
 │   ├── Projects.tsx
+│   ├── ProjectDetail.tsx
 │   ├── Memories.tsx
 │   ├── Search.tsx
-│   ├── Graph.tsx
 │   ├── Jobs.tsx
 │   ├── McpTester.tsx
+│   ├── AdminPanel.tsx
+│   ├── Logs.tsx
 │   └── Settings.tsx
 ├── stores/
-│   └── auth.ts             # Zustand auth store
+│   ├── auth.ts              # Zustand auth store
+│   └── project.ts           # Zustand project selection store
+├── styles/
+│   └── globals.css          # Design system variables
 ├── App.tsx
 └── main.tsx
 ```
 
-## License
+## Licence
 
 MIT
