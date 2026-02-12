@@ -4,11 +4,16 @@
  * Uses a singleton EventSource connection shared across all consumers.
  * Subscribes to the /events endpoint and provides typed event handlers.
  * Handles authentication, reconnection with exponential backoff, and cleanup.
+ *
+ * Connection state and a rolling log buffer are pushed to the SSE Zustand
+ * store so that any component (Layout header, Logs page, etc.) can read
+ * them without mounting its own SSE subscription.
  */
 
 import { useEffect, useRef, useCallback } from 'react';
 import { API_BASE } from '../lib/api';
 import { useAuth } from '../stores/auth';
+import { useSSEStore } from '../stores/sse';
 
 // Event types matching backend
 export type SSEEventType =
@@ -125,8 +130,8 @@ export interface UseSSEOptions {
   enabled?: boolean;
 }
 
-const MAX_RECONNECT_ATTEMPTS = 5;
 const BASE_RECONNECT_DELAY_MS = 1000;
+const MAX_RECONNECT_DELAY_MS = 30_000;
 
 // Singleton state for the SSE connection
 let singletonEventSource: EventSource | null = null;
@@ -178,6 +183,7 @@ function cleanupSingleton() {
   }
   singletonToken = null;
   singletonReconnectAttempts = 0;
+  useSSEStore.getState().setConnectionStatus('disconnected');
 }
 
 function connectSingleton(token: string) {
@@ -205,17 +211,22 @@ function connectSingleton(token: string) {
 
   eventSource.onopen = () => {
     singletonReconnectAttempts = 0;
+    useSSEStore.getState().setConnectionStatus('connected');
     connectionListeners.open.forEach(cb => cb());
   };
 
   eventSource.onerror = (error) => {
     connectionListeners.error.forEach(cb => cb(error));
 
-    // Only reconnect if we still have subscribers
-    if (subscriberCount > 0 && singletonReconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-      const delay = BASE_RECONNECT_DELAY_MS * Math.pow(2, singletonReconnectAttempts);
+    // Always reconnect while we have subscribers
+    if (subscriberCount > 0) {
+      const delay = Math.min(
+        BASE_RECONNECT_DELAY_MS * Math.pow(2, singletonReconnectAttempts),
+        MAX_RECONNECT_DELAY_MS,
+      );
       singletonReconnectAttempts++;
 
+      useSSEStore.getState().setConnectionStatus('reconnecting', singletonReconnectAttempts);
       connectionListeners.reconnecting.forEach(cb => cb(singletonReconnectAttempts));
 
       singletonReconnectTimeout = window.setTimeout(() => {
@@ -223,6 +234,8 @@ function connectSingleton(token: string) {
           connectSingleton(singletonToken);
         }
       }, delay);
+    } else {
+      useSSEStore.getState().setConnectionStatus('disconnected');
     }
   };
 
@@ -239,8 +252,13 @@ function connectSingleton(token: string) {
     eventSource.addEventListener(eventType, (event: MessageEvent) => {
       try {
         const data = JSON.parse(event.data);
-        // The backend wraps the data in {type, data} format
-        emitToListeners(eventType, data.data ?? data);
+        const payload = data.data ?? data;
+        emitToListeners(eventType, payload);
+
+        // Push job:log events into the background buffer
+        if (eventType === 'job:log') {
+          useSSEStore.getState().addLog(payload as JobLogEvent);
+        }
       } catch (e) {
         console.error(`Failed to parse SSE event ${eventType}:`, e);
       }
@@ -256,7 +274,7 @@ function connectSingleton(token: string) {
  *
  * Automatically handles:
  * - Authentication via token query parameter
- * - Reconnection with exponential backoff
+ * - Reconnection with exponential backoff (no limit, capped at 30 s)
  * - Cleanup when all subscribers disconnect
  */
 export function useSSE(options: UseSSEOptions = {}) {

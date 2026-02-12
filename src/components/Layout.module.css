@@ -114,6 +114,52 @@
   50% { opacity: 0.5; }
 }
 
+/* SSE Connection Status */
+.sseStatusSeparator {
+  color: var(--text-tertiary);
+  margin: 0 0.125rem;
+}
+
+.sseStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.7rem;
+}
+
+.sseStatus.connected {
+  color: var(--status-healthy);
+}
+
+.sseStatus.reconnecting {
+  color: var(--status-warning);
+}
+
+.sseStatus.disconnected {
+  color: var(--text-tertiary);
+}
+
+.sseDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+  flex-shrink: 0;
+}
+
+.sseDot.connected {
+  background: var(--status-healthy);
+}
+
+.sseDot.reconnecting {
+  background: var(--status-warning);
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.sseDot.disconnected {
+  background: var(--text-tertiary);
+}
+
 .logoutBtn {
   padding: 0.5rem 1rem;
   font-size: 0.75rem;

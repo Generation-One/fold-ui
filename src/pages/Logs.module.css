@@ -100,6 +100,15 @@
   animation: pulse 2s ease-in-out infinite;
 }
 
+.connectionStatus.reconnecting {
+  color: var(--status-warning);
+}
+
+.connectionStatus.reconnecting .statusDot {
+  background: var(--status-warning);
+  animation: pulse 1s ease-in-out infinite;
+}
+
 .connectionStatus.disconnected {
   color: var(--status-error);
 }

@@ -41,11 +41,13 @@ function formatJobType(jobType: string): string {
 
 export function SSEProvider({ children }: SSEProviderProps) {
   const { showToast } = useToast();
-  const { token } = useAuth();
+  const { token, fetchUser } = useAuth();
   const { mutate } = useSWRConfig();
 
   // Track the previous health status to detect transitions
   const prevHealthStatus = useRef<string | null>(null);
+  // Track whether we've had a successful connection before (to detect reconnections)
+  const hasConnectedBefore = useRef(false);
 
   /** Refresh sidebar-related SWR caches */
   const refreshSidebarData = () => {
@@ -53,10 +55,21 @@ export function SSEProvider({ children }: SSEProviderProps) {
     mutate('projects');
     // Revalidate jobs (for job count badge)
     mutate('jobs');
+    // Revalidate system status
+    mutate('status');
   };
 
   useSSE({
     enabled: !!token,
+
+    onOpen: () => {
+      if (hasConnectedBefore.current) {
+        // This is a reconnection - refresh everything since we may have missed events
+        refreshSidebarData();
+        fetchUser();
+      }
+      hasConnectedBefore.current = true;
+    },
 
     onJobStarted: (event: JobEvent) => {
       const jobTypeName = formatJobType(event.job_type);

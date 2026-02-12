@@ -5,6 +5,7 @@ import useSWR, { useSWRConfig } from 'swr';
 import { api } from '../lib/api';
 import { useAuth } from '../stores/auth';
 import { useProject } from '../stores/project';
+import { useSSEStore } from '../stores/sse';
 import { ProjectSelector } from './ui/ProjectSelector';
 import styles from './Layout.module.css';
 
@@ -116,13 +117,15 @@ const icons: Record<string, ReactNode> = {
 
 export function Layout() {
   const location = useLocation();
-  const { isAuthenticated, clearAuth, user } = useAuth();
+  const { isAuthenticated, clearAuth, user, fetchUser } = useAuth();
   const { selectedProjectId, selectProject } = useProject();
+  const sseStatus = useSSEStore((s) => s.connectionStatus);
   const { mutate } = useSWRConfig();
 
-  // Track previous auth and status states to detect transitions
+  // Track previous states to detect transitions
   const prevAuthRef = useRef<boolean | null>(null);
   const prevStatusRef = useRef<boolean | null>(null);
+  const prevSSERef = useRef<string | null>(null);
 
   const { data: status, error: statusError } = useSWR(
     'status',
@@ -130,8 +133,10 @@ export function Layout() {
     { refreshInterval: 5000 }
   );
 
-  // Determine if system is offline or unreachable
-  const isSystemOffline = !status || status.status !== 'healthy' || statusError;
+  // System is offline if SSE has lost connection OR status endpoint reports unhealthy
+  const statusOffline = !status || status.status !== 'healthy' || statusError;
+  const sseDisconnected = sseStatus !== 'connected';
+  const isSystemOffline = statusOffline || sseDisconnected;
 
   const { data: jobs } = useSWR(
     'jobs',
@@ -143,26 +148,36 @@ export function Layout() {
     (j) => j.status === 'pending' || j.status === 'running'
   ).length || 0;
 
-  // Refresh sidebar data when auth or system status changes
+  // Refresh sidebar data and permissions when auth, status, or SSE connection changes
   useEffect(() => {
     const wasAuthenticated = prevAuthRef.current;
     const wasOnline = prevStatusRef.current;
+    const prevSSE = prevSSERef.current;
 
     // Detect auth state transition
     const authChanged = wasAuthenticated !== null && wasAuthenticated !== isAuthenticated;
     // Detect system status transition (offline <-> online)
     const statusChanged = wasOnline !== null && wasOnline !== !isSystemOffline;
+    // Detect SSE reconnection (transition to 'connected' from anything else)
+    const sseReconnected = prevSSE !== null && prevSSE !== 'connected' && sseStatus === 'connected';
 
-    if (authChanged || statusChanged) {
+    if (authChanged || statusChanged || sseReconnected) {
       // Revalidate sidebar-related caches
       mutate('projects');
       mutate('jobs');
+      mutate('status');
+    }
+
+    // Re-fetch user permissions on reconnection or auth change
+    if (sseReconnected || (authChanged && isAuthenticated)) {
+      fetchUser();
     }
 
     // Update refs for next comparison
     prevAuthRef.current = isAuthenticated;
     prevStatusRef.current = !isSystemOffline;
-  }, [isAuthenticated, isSystemOffline, mutate]);
+    prevSSERef.current = sseStatus;
+  }, [isAuthenticated, isSystemOffline, sseStatus, mutate, fetchUser]);
 
   return (
     <div className={styles.app}>
@@ -190,6 +205,10 @@ export function Layout() {
                   ? statusError instanceof Error && statusError.message.includes('401')
                     ? 'Authentication failed - check your API token'
                     : 'Cannot reach the system - check your connection'
+                  : sseDisconnected && !statusOffline
+                  ? sseStatus === 'reconnecting'
+                    ? 'Real-time connection lost - reconnecting...'
+                    : 'Real-time connection lost'
                   : status?.status === 'unhealthy'
                   ? 'The system is currently unavailable'
                   : 'The system is operating in degraded mode'}
@@ -276,6 +295,15 @@ export function Layout() {
                 : status.status === 'healthy' && status.llm?.available && status.embeddings?.loaded
                 ? 'All systems operational'
                 : 'Systems degraded'}
+            </span>
+            <span className={styles.sseStatusSeparator}>·</span>
+            <span className={`${styles.sseStatus} ${styles[sseStatus]}`}>
+              <span className={`${styles.sseDot} ${styles[sseStatus]}`} />
+              {sseStatus === 'connected'
+                ? 'Connected'
+                : sseStatus === 'reconnecting'
+                ? 'Reconnecting'
+                : 'Disconnected'}
             </span>
           </div>
           <div className={styles.statusIndicator} style={{ flexDirection: 'column', alignItems: 'flex-end', gap: '0.15rem' }}>
