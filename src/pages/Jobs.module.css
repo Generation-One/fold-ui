@@ -50,6 +50,53 @@
   to { transform: rotate(360deg); }
 }
 
+/* Stats */
+.stats {
+  display: flex;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.statValue {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.statRunning {
+  color: var(--holo-cyan);
+}
+
+.statPending {
+  color: var(--status-warning);
+}
+
+.statCompleted {
+  color: var(--status-healthy);
+}
+
+.statFailed {
+  color: var(--status-error);
+}
+
+.statLabel {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-tertiary);
+}
+
 /* Filters */
 .filters {
   display: flex;
@@ -65,6 +112,7 @@
   border-radius: var(--radius-full);
   font-size: 0.75rem;
   color: var(--text-secondary);
+  text-transform: capitalize;
   transition: all 0.2s var(--ease-out-expo);
 }
 
@@ -98,7 +146,7 @@
 /* Job Card */
 .jobCard {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 1rem;
   padding: 1rem 1.25rem;
   background: var(--surface);
@@ -121,6 +169,7 @@
   border-radius: var(--radius-md);
   color: var(--text-secondary);
   flex-shrink: 0;
+  margin-top: 2px;
 }
 
 .jobIcon svg {
@@ -128,34 +177,119 @@
   height: 18px;
 }
 
+.icon_running {
+  color: var(--holo-cyan);
+  background: rgba(0, 200, 255, 0.08);
+}
+
+.icon_failed {
+  color: var(--status-error);
+  background: rgba(255, 59, 48, 0.08);
+}
+
 .jobInfo {
   flex: 1;
   min-width: 0;
+}
+
+.jobHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  margin-bottom: 0.25rem;
 }
 
 .jobType {
   font-size: 0.85rem;
   font-weight: 500;
   color: var(--text-primary);
-  margin-bottom: 0.25rem;
+}
+
+.projectName {
+  font-size: 0.7rem;
+  font-weight: 500;
+  padding: 0.125rem 0.5rem;
+  background: var(--elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
 }
 
 .jobMeta {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  font-size: 0.75rem;
+  gap: 0.375rem;
+  font-size: 0.7rem;
   color: var(--text-tertiary);
+  flex-wrap: wrap;
+}
+
+.jobMetaSep {
+  color: var(--border);
 }
 
 .jobId {
   font-family: 'JetBrains Mono', monospace;
 }
 
+.jobDuration {
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-secondary);
+}
+
+/* Progress */
+.progressRow {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  margin-top: 0.375rem;
+}
+
+.progressBarWide {
+  flex: 1;
+  max-width: 200px;
+  height: 4px;
+  background: var(--elevated);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progressFill {
+  height: 100%;
+  background: var(--gradient-holo);
+  border-radius: 2px;
+  transition: width 0.3s var(--ease-out-expo);
+}
+
+.progressFill.progressFailed {
+  background: var(--status-error);
+}
+
+.progressText {
+  font-size: 0.65rem;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+/* Retry info */
+.retryInfo {
+  margin-top: 0.25rem;
+  font-size: 0.65rem;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--status-warning);
+}
+
+/* Job Status */
 .jobStatus {
   display: flex;
   align-items: center;
   gap: 0.375rem;
+  flex-shrink: 0;
 }
 
 .statusDot {
@@ -179,6 +313,20 @@
 
 .statusDot.failed {
   background: var(--status-error);
+}
+
+.statusDot.paused {
+  background: var(--text-tertiary);
+}
+
+.statusDot.cancelled {
+  background: var(--text-tertiary);
+  opacity: 0.5;
+}
+
+.statusDot.retry {
+  background: var(--status-warning);
+  animation: pulse 2s ease-in-out infinite;
 }
 
 @keyframes pulse {
@@ -208,32 +356,17 @@
   color: var(--status-error);
 }
 
-.jobTime {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.7rem;
+.statusLabel.paused {
   color: var(--text-tertiary);
-  text-align: right;
-  min-width: 100px;
 }
 
-/* Progress Bar */
-.progressWrapper {
-  flex: 1;
-  max-width: 120px;
+.statusLabel.cancelled {
+  color: var(--text-tertiary);
+  opacity: 0.7;
 }
 
-.progressBar {
-  height: 4px;
-  background: var(--elevated);
-  border-radius: 2px;
-  overflow: hidden;
-}
-
-.progressFill {
-  height: 100%;
-  background: var(--gradient-holo);
-  border-radius: 2px;
-  transition: width 0.3s var(--ease-out-expo);
+.statusLabel.retry {
+  color: var(--status-warning);
 }
 
 /* Error message */
@@ -242,67 +375,9 @@
   font-size: 0.7rem;
   color: var(--status-error);
   display: -webkit-box;
-  -webkit-line-clamp: 1;
+  -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-}
-
-/* Loading State */
-.loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4rem;
-  color: var(--text-tertiary);
-  font-size: 0.85rem;
-}
-
-/* Stats */
-.stats {
-  display: flex;
-  gap: 1.5rem;
-  margin-bottom: 1.5rem;
-  padding: 1rem 1.25rem;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-}
-
-.stat {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.statValue {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.statLabel {
-  font-size: 0.7rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--text-tertiary);
-}
-
-/* Paused status */
-.statusDot.paused {
-  background: var(--text-tertiary);
-}
-
-.statusLabel.paused {
-  color: var(--text-tertiary);
-}
-
-/* Job progress text */
-.jobProgress {
-  font-size: 0.7rem;
-  font-family: 'JetBrains Mono', monospace;
-  color: var(--holo-cyan);
-  margin-top: 0.25rem;
 }
 
 /* Cancel Button */
@@ -317,6 +392,7 @@
   border-radius: var(--radius-sm);
   color: var(--text-tertiary);
   flex-shrink: 0;
+  margin-top: 2px;
   transition: all 0.2s var(--ease-out-expo);
 }
 
@@ -335,15 +411,14 @@
   animation: spin 1s linear infinite;
 }
 
-/* Cancelled status */
-.statusDot.cancelled {
-  background: var(--text-tertiary);
-  opacity: 0.5;
-}
-
-.statusLabel.cancelled {
+/* Loading State */
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem;
   color: var(--text-tertiary);
-  opacity: 0.7;
+  font-size: 0.85rem;
 }
 
 /* Pagination */

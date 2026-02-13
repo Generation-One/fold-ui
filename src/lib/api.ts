@@ -43,15 +43,30 @@ export interface SystemStatus {
   };
 }
 
+export interface JobStatusCounts {
+  total: number;
+  pending: number;
+  running: number;
+  completed: number;
+  failed: number;
+  cancelled: number;
+  paused: number;
+  retry: number;
+}
+
 export interface Job {
   id: string;
   type: 'index_repo' | 'reindex_repo' | 'sync_metadata' | 'index_history' | string;
   status: 'pending' | 'running' | 'completed' | 'failed' | 'retry' | 'cancelled' | 'paused';
   project_id?: string;
+  project_name?: string;
   priority?: number;
   processed_items?: number;
   total_items?: number;
+  failed_items?: number;
   progress?: number;
+  retry_count?: number;
+  max_retries?: number;
   payload?: Record<string, unknown>;
   created_at: string;
   started_at?: string;
@@ -460,8 +475,9 @@ export interface SearchOptions {
 interface RawJob {
   id: string;
   job_type: string;
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'retry' | 'cancelled';
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'retry' | 'cancelled' | 'paused';
   project_id?: string;
+  project_name?: string;
   total_items?: number;
   processed_items?: number;
   failed_items?: number;
@@ -480,6 +496,7 @@ interface JobsResponse {
   total: number;
   offset: number;
   limit: number;
+  counts: JobStatusCounts;
 }
 
 // API Client Class
@@ -1205,9 +1222,13 @@ export const api = {
       type: j.job_type,
       status: j.status,
       project_id: j.project_id,
+      project_name: j.project_name,
       priority: j.priority,
       processed_items: j.processed_items,
       total_items: j.total_items,
+      failed_items: j.failed_items,
+      retry_count: j.retry_count,
+      max_retries: j.max_retries,
       progress: j.total_items && j.processed_items !== undefined
         ? j.processed_items / j.total_items
         : undefined,
@@ -1219,7 +1240,7 @@ export const api = {
   },
   listJobsFilteredWithMeta: async (
     params: { status?: string; job_type?: string; limit?: number; offset?: number } = {}
-  ): Promise<{ jobs: Job[]; total: number; offset: number; limit: number }> => {
+  ): Promise<{ jobs: Job[]; total: number; offset: number; limit: number; counts: JobStatusCounts }> => {
     const result = await apiClient.listJobsFiltered(params);
     return {
       jobs: result.jobs.map((j: RawJob): Job => ({
@@ -1227,9 +1248,13 @@ export const api = {
         type: j.job_type,
         status: j.status,
         project_id: j.project_id,
+        project_name: j.project_name,
         priority: j.priority,
         processed_items: j.processed_items,
         total_items: j.total_items,
+        failed_items: j.failed_items,
+        retry_count: j.retry_count,
+        max_retries: j.max_retries,
         progress: j.total_items && j.processed_items !== undefined
           ? j.processed_items / j.total_items
           : undefined,
@@ -1241,6 +1266,7 @@ export const api = {
       total: result.total,
       offset: result.offset,
       limit: result.limit,
+      counts: result.counts,
     };
   },
   getJobById: async (jobId: string): Promise<Job> => {
@@ -1250,9 +1276,13 @@ export const api = {
       type: j.job_type,
       status: j.status,
       project_id: j.project_id,
+      project_name: j.project_name,
       priority: j.priority,
       processed_items: j.processed_items,
       total_items: j.total_items,
+      failed_items: j.failed_items,
+      retry_count: j.retry_count,
+      max_retries: j.max_retries,
       progress: j.total_items && j.processed_items !== undefined
         ? j.processed_items / j.total_items
         : undefined,
