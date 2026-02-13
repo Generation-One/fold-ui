@@ -226,6 +226,7 @@ export interface ProjectStatus {
     root_exists: boolean;
     fold_dir_exists: boolean;
     indexable_files_estimate: number;
+    indexed_files_count: number;
     fold_dir_size_bytes: number;
   };
   indexing: {

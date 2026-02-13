@@ -845,6 +845,92 @@
   animation: pulse 2s ease-in-out infinite;
 }
 
+/* Index hero - big percentage display */
+.indexHero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 1rem 0 0.75rem;
+}
+
+.indexHeroValue {
+  font-size: 3rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  font-family: 'JetBrains Mono', monospace;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.indexHeroValueOk {
+  font-size: 3rem;
+  font-weight: 800;
+  color: var(--status-success);
+  font-family: 'JetBrains Mono', monospace;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.indexHeroValueWarn {
+  font-size: 3rem;
+  font-weight: 800;
+  color: var(--status-warning);
+  font-family: 'JetBrains Mono', monospace;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.indexHeroLabel {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-tertiary);
+}
+
+.indexHeroDetail {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-family: 'JetBrains Mono', monospace;
+  margin-top: 0.125rem;
+}
+
+.indexHeroBar {
+  width: 100%;
+  max-width: 200px;
+  margin-top: 0.5rem;
+}
+
+/* Active indexing job progress */
+.indexingActiveProgress {
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Sync badges for Vector DB header */
+.syncBadgeOk {
+  display: inline-flex;
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--radius-full);
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--status-success);
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.syncBadgeWarn {
+  display: inline-flex;
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--radius-full);
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--status-warning);
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
 /* Filesystem stats inline within Indexing card */
 .filesystemInline {
   display: flex;

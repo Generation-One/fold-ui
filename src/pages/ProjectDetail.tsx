@@ -51,6 +51,12 @@ function embeddedPercent(syncStatus: ProjectStatus['vector_db']['sync_status']):
   return Math.min(100, Math.round((syncStatus.vector_count / syncStatus.expected_count) * 100));
 }
 
+function indexedPercent(filesystem: ProjectStatus['filesystem']): number {
+  if (!filesystem || !filesystem.root_exists) return 0;
+  if (filesystem.indexable_files_estimate === 0) return 0;
+  return Math.min(100, Math.round((filesystem.indexed_files_count / filesystem.indexable_files_estimate) * 100));
+}
+
 function ProjectStatusPanel({ projectId }: { projectId: string }) {
   const { data: status, isLoading, error } = useSWR<ProjectStatus>(
     `project-status-${projectId}`,
@@ -160,8 +166,34 @@ function ProjectStatusPanel({ projectId }: { projectId: string }) {
           )}
         </div>
         <div className={styles.statusCardBody}>
-        {status.indexing.in_progress ? (
-          <div className={styles.indexingProgress}>
+        {/* Big percentage hero */}
+        {(() => {
+          const idxPct = indexedPercent(status.filesystem);
+          return (
+            <div className={styles.indexHero}>
+              <span className={idxPct === 100 ? styles.indexHeroValueOk : idxPct > 0 ? styles.indexHeroValueWarn : styles.indexHeroValue}>
+                {idxPct}%
+              </span>
+              <span className={styles.indexHeroLabel}>Files Indexed</span>
+              {status.filesystem && status.filesystem.root_exists && (
+                <span className={styles.indexHeroDetail}>
+                  {status.filesystem.indexed_files_count.toLocaleString()} / {status.filesystem.indexable_files_estimate.toLocaleString()} files
+                </span>
+              )}
+              {idxPct < 100 && idxPct > 0 && (
+                <div className={styles.indexHeroBar}>
+                  <div className={styles.progressBar}>
+                    <div className={styles.progressFill} style={{ width: `${idxPct}%` }} />
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+
+        {/* Active indexing progress */}
+        {status.indexing.in_progress && (
+          <div className={styles.indexingActiveProgress}>
             <div className={styles.progressBar}>
               <div
                 className={styles.progressFill}
@@ -170,43 +202,33 @@ function ProjectStatusPanel({ projectId }: { projectId: string }) {
             </div>
             <span className={styles.progressText}>
               {status.indexing.progress != null && status.indexing.progress > 0
-                ? `${status.indexing.progress}%`
+                ? `Current job: ${status.indexing.progress}%`
                 : 'Starting...'}
             </span>
           </div>
-        ) : (
-          <div className={styles.indexingInfo}>
-            <div className={styles.indexStat}>
-              <span className={styles.indexLabel}>Last indexed</span>
-              <span className={styles.indexValue}>{formatTimeAgo(status.indexing.last_indexed_at)}</span>
-            </div>
-            <div className={styles.indexStat}>
-              <span className={styles.indexLabel}>Duration</span>
-              <span className={styles.indexValue}>{formatDuration(status.indexing.last_duration_secs)}</span>
-            </div>
-          </div>
         )}
-        {/* Filesystem stats inline */}
-        {status.filesystem && (
-          <div className={styles.filesystemInline}>
-            <div className={styles.fileStatRow}>
-              <span className={styles.indexLabel}>Indexable files</span>
-              <span className={styles.indexValue}>
-                {status.filesystem.root_exists ? status.filesystem.indexable_files_estimate.toLocaleString() : '--'}
-              </span>
-            </div>
-            <div className={styles.fileStatRow}>
-              <span className={styles.indexLabel}>Indexed memories</span>
-              <span className={styles.indexValue}>{status.database.total_memories.toLocaleString()}</span>
-            </div>
-            {status.filesystem.fold_dir_exists && (
-              <div className={styles.fileStatRow}>
-                <span className={styles.indexLabel}>fold/ size</span>
-                <span className={styles.indexValue}>{formatBytes(status.filesystem.fold_dir_size_bytes)}</span>
-              </div>
-            )}
+
+        {/* Stats below */}
+        <div className={styles.filesystemInline}>
+          <div className={styles.fileStatRow}>
+            <span className={styles.indexLabel}>Last indexed</span>
+            <span className={styles.indexValue}>{formatTimeAgo(status.indexing.last_indexed_at)}</span>
           </div>
-        )}
+          <div className={styles.fileStatRow}>
+            <span className={styles.indexLabel}>Duration</span>
+            <span className={styles.indexValue}>{formatDuration(status.indexing.last_duration_secs)}</span>
+          </div>
+          <div className={styles.fileStatRow}>
+            <span className={styles.indexLabel}>Memories</span>
+            <span className={styles.indexValue}>{status.database.total_memories.toLocaleString()}</span>
+          </div>
+          {status.filesystem?.fold_dir_exists && (
+            <div className={styles.fileStatRow}>
+              <span className={styles.indexLabel}>fold/ size</span>
+              <span className={styles.indexValue}>{formatBytes(status.filesystem.fold_dir_size_bytes)}</span>
+            </div>
+          )}
+        </div>
         </div>
       </div>
 
@@ -261,10 +283,15 @@ function ProjectStatusPanel({ projectId }: { projectId: string }) {
         </div>
       </div>
 
-      {/* Vector DB Stats - fixed embedded % */}
+      {/* Vector DB Stats */}
       <div className={styles.statusCard}>
         <div className={styles.statusCardHeader}>
           <h3 className={styles.statusCardTitle}>Vector Database</h3>
+          {pct === 100 ? (
+            <span className={styles.syncBadgeOk}>Synced</span>
+          ) : pct > 0 ? (
+            <span className={styles.syncBadgeWarn}>{pct}% embedded</span>
+          ) : null}
         </div>
         <div className={styles.statusCardBody}>
         <div className={styles.statsGrid}>
@@ -275,12 +302,6 @@ function ProjectStatusPanel({ projectId }: { projectId: string }) {
           <div className={styles.statItem}>
             <span className={styles.statValue}>{status.vector_db.dimension || '--'}</span>
             <span className={styles.statLabel}>Dimensions</span>
-          </div>
-          <div className={styles.statItem}>
-            <span className={pct === 100 ? styles.statValueOk : pct > 0 ? styles.statValueWarn : styles.statValue}>
-              {pct}%
-            </span>
-            <span className={styles.statLabel}>Embedded</span>
           </div>
         </div>
         {pct < 100 && pct > 0 && (
