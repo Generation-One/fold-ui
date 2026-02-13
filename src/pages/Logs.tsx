@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '../stores/auth';
 import { useSSE, type JobLogEvent } from '../hooks/useSSE';
@@ -8,7 +8,7 @@ import styles from './Logs.module.css';
 type LogLevel = 'all' | 'debug' | 'info' | 'warn' | 'error';
 
 const LOG_LEVELS: LogLevel[] = ['all', 'debug', 'info', 'warn', 'error'];
-const MAX_LOGS = 1000;
+const MAX_LOGS = 150;
 
 // Patterns to filter out noisy logs (e.g. status update requests, polling)
 const NOISE_PATTERNS = [
@@ -70,9 +70,10 @@ export function Logs() {
       isAutoScrollingRef.current = true;
       logsEndRef.current.scrollIntoView({ behavior: 'smooth' });
       // Reset the flag after a short delay (smooth scroll takes time)
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         isAutoScrollingRef.current = false;
       }, 100);
+      return () => clearTimeout(timer);
     }
   }, [logs, autoScroll]);
 
@@ -97,7 +98,7 @@ export function Logs() {
   }, [autoScroll]);
 
   // Filter logs based on noise, level, job ID, and search text
-  const filteredLogs = logs.filter(log => {
+  const filteredLogs = useMemo(() => logs.filter(log => {
     // Noise filter
     if (filterNoise && isNoisyLog(log.message)) {
       return false;
@@ -119,10 +120,14 @@ export function Logs() {
     }
 
     return true;
-  });
+  }), [logs, filterNoise, levelFilter, jobFilter, searchFilter]);
 
   // Get unique job IDs for the dropdown
-  const uniqueJobIds = [...new Set(logs.map(log => log.job_id))];
+  const uniqueJobIds = useMemo(() => [...new Set(logs.map(log => log.job_id))], [logs]);
+
+  // Stats (avoid re-filtering on every render)
+  const errorCount = useMemo(() => logs.filter(l => l.level === 'error').length, [logs]);
+  const warnCount = useMemo(() => logs.filter(l => l.level === 'warn').length, [logs]);
 
   // Format timestamp for display
   const formatTime = (timestamp: string) => {
@@ -316,11 +321,11 @@ export function Logs() {
         </span>
         <span className={styles.statItem}>
           <span className={`${styles.levelDot} ${styles.error}`} />
-          {logs.filter(l => l.level === 'error').length} errors
+          {errorCount} errors
         </span>
         <span className={styles.statItem}>
           <span className={`${styles.levelDot} ${styles.warn}`} />
-          {logs.filter(l => l.level === 'warn').length} warnings
+          {warnCount} warnings
         </span>
       </div>
 
