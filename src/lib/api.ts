@@ -316,6 +316,13 @@ export interface MemoryContext {
   similar: Array<{ id: string; title?: string; content_preview: string; score: number }>;
 }
 
+export interface FlushResult {
+  deleted_memories: number;
+  matched_files: string[];
+  matched_file_count: number;
+  dry_run: boolean;
+}
+
 export interface AuthProvider {
   id: string;
   display_name: string;
@@ -763,6 +770,13 @@ class FoldApiClient {
     });
   }
 
+  async flushMemories(projectId: string, pattern: string, dryRun: boolean = false): Promise<FlushResult> {
+    return this._fetch<FlushResult>(`/projects/${projectId}/memories/flush`, {
+      method: 'POST',
+      body: JSON.stringify({ pattern, dry_run: dryRun }),
+    });
+  }
+
   /**
    * Download the original source file for a memory.
    * Returns a Blob that can be used to create a download link.
@@ -1147,6 +1161,8 @@ export const api = {
     tags?: string[];
     file_path?: string;
   }) => apiClient.updateMemory(projectId, memoryId, data),
+  flushMemories: (projectId: string, pattern: string, dryRun?: boolean) =>
+    apiClient.flushMemories(projectId, pattern, dryRun),
   getMemoryContext: (projectId: string, memoryId: string, depth?: number) =>
     apiClient.getMemoryContext(projectId, memoryId, depth),
   downloadSourceFile: (projectId: string, memoryId: string) =>

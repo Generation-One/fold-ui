@@ -697,6 +697,107 @@
   cursor: not-allowed;
 }
 
+/* Flush memories */
+.flushRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.flushInput {
+  flex: 1;
+  padding: 0.5rem 0.75rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+  font-family: var(--font-mono, monospace);
+  color: var(--text-primary);
+}
+
+.flushInput::placeholder {
+  color: var(--text-tertiary);
+}
+
+.flushInput:focus {
+  outline: none;
+  border-color: var(--status-error);
+}
+
+.flushPreviewBtn {
+  padding: 0.5rem 0.875rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-md);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s var(--ease-out-expo);
+}
+
+.flushPreviewBtn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.flushPreviewBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.flushPreview {
+  margin-top: 0.75rem;
+  padding: 0.75rem;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-secondary);
+  border-radius: var(--radius-md);
+}
+
+.flushPreviewCount {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.flushPreviewCount strong {
+  color: var(--text-primary);
+}
+
+.flushError {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--status-error);
+}
+
+.flushFileList {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.flushFileList summary {
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.flushFileList ul {
+  margin: 0.375rem 0 0 0;
+  padding-left: 1.25rem;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.flushFileList li {
+  font-family: var(--font-mono, monospace);
+  font-size: 0.75rem;
+  padding: 0.125rem 0;
+  color: var(--text-tertiary);
+}
+
 /* Status Panel */
 .statusPanel {
   display: flex;

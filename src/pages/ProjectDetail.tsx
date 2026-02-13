@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import useSWR, { mutate } from 'swr';
 import { api } from '../lib/api';
-import type { Project, ProjectStatus, GitHubBranch } from '../lib/api';
+import type { Project, ProjectStatus, GitHubBranch, FlushResult } from '../lib/api';
+import { useAuth } from '../stores/auth';
 import { ProjectSettings } from '../components/ProjectSettings';
 import { ProjectMemberManager } from '../components/ProjectMemberManager';
 import styles from './ProjectDetail.module.css';
@@ -713,7 +714,51 @@ function WebhookInfo({ project, onUpdate }: { project: Project; onUpdate: () => 
 
 function AdvancedSettings({ projectId }: { projectId: string }) {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isAdmin = user?.roles?.includes('admin') ?? false;
   const [deleting, setDeleting] = useState(false);
+
+  // Flush state
+  const [flushPattern, setFlushPattern] = useState('');
+  const [flushing, setFlushing] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
+  const [flushPreview, setFlushPreview] = useState<FlushResult | null>(null);
+  const [flushError, setFlushError] = useState<string | null>(null);
+
+  const handlePreview = async () => {
+    if (!flushPattern.trim()) return;
+    setFlushError(null);
+    setFlushPreview(null);
+    setPreviewing(true);
+    try {
+      const result = await api.flushMemories(projectId, flushPattern, true);
+      setFlushPreview(result);
+    } catch (err) {
+      setFlushError(err instanceof Error ? err.message : 'Preview failed');
+    } finally {
+      setPreviewing(false);
+    }
+  };
+
+  const handleFlush = async () => {
+    if (!flushPattern.trim()) return;
+    const count = flushPreview?.deleted_memories ?? 0;
+    const files = flushPreview?.matched_file_count ?? 0;
+    if (!confirm(`Flush ${count} memories across ${files} files matching "${flushPattern}"? This cannot be undone.`)) return;
+
+    setFlushError(null);
+    setFlushing(true);
+    try {
+      const result = await api.flushMemories(projectId, flushPattern, false);
+      setFlushPreview(result);
+      setFlushPattern('');
+      mutate(`project-status-${projectId}`);
+    } catch (err) {
+      setFlushError(err instanceof Error ? err.message : 'Flush failed');
+    } finally {
+      setFlushing(false);
+    }
+  };
 
   const handleDelete = async () => {
     if (!confirm('Are you sure you want to delete this project? This action cannot be undone.')) return;
@@ -733,6 +778,75 @@ function AdvancedSettings({ projectId }: { projectId: string }) {
     <div className={styles.advancedPanel}>
       <div className={styles.dangerZone}>
         <h3 className={styles.dangerTitle}>Danger Zone</h3>
+
+        {isAdmin && (
+          <div className={styles.dangerCard}>
+            <div className={styles.dangerContent}>
+              <h4>Flush memories by file pattern</h4>
+              <p>Remove all memories for files whose path matches a regex pattern. Useful after updating a splitter (e.g. flush all <code>.md</code> files to re-index with the new logic).</p>
+              <div className={styles.flushRow}>
+                <input
+                  type="text"
+                  className={styles.flushInput}
+                  placeholder="\.md$"
+                  value={flushPattern}
+                  onChange={(e) => {
+                    setFlushPattern(e.target.value);
+                    setFlushPreview(null);
+                    setFlushError(null);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handlePreview();
+                  }}
+                />
+                <button
+                  className={styles.flushPreviewBtn}
+                  onClick={handlePreview}
+                  disabled={previewing || !flushPattern.trim()}
+                >
+                  {previewing ? 'Checking...' : 'Preview'}
+                </button>
+                <button
+                  className={styles.dangerBtn}
+                  onClick={handleFlush}
+                  disabled={flushing || !flushPreview || flushPreview.matched_file_count === 0}
+                >
+                  {flushing ? 'Flushing...' : 'Flush'}
+                </button>
+              </div>
+              {flushError && (
+                <p className={styles.flushError}>{flushError}</p>
+              )}
+              {flushPreview && (
+                <div className={styles.flushPreview}>
+                  {flushPreview.dry_run ? (
+                    <p className={styles.flushPreviewCount}>
+                      Would flush <strong>{flushPreview.deleted_memories}</strong> memories across <strong>{flushPreview.matched_file_count}</strong> files
+                    </p>
+                  ) : (
+                    <p className={styles.flushPreviewCount}>
+                      Flushed <strong>{flushPreview.deleted_memories}</strong> memories across <strong>{flushPreview.matched_file_count}</strong> files
+                    </p>
+                  )}
+                  {flushPreview.matched_files.length > 0 && (
+                    <details className={styles.flushFileList}>
+                      <summary>{flushPreview.matched_file_count} matched files</summary>
+                      <ul>
+                        {flushPreview.matched_files.slice(0, 100).map((f) => (
+                          <li key={f}>{f}</li>
+                        ))}
+                        {flushPreview.matched_files.length > 100 && (
+                          <li>...and {flushPreview.matched_files.length - 100} more</li>
+                        )}
+                      </ul>
+                    </details>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className={styles.dangerCard}>
           <div className={styles.dangerContent}>
             <h4>Delete this project</h4>
