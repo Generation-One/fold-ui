@@ -5,7 +5,6 @@ import useSWR from 'swr';
 import { useAuth } from '../stores/auth';
 import { useProject } from '../stores/project';
 import { api, API_BASE } from '../lib/api';
-import type { Project } from '../lib/api';
 import styles from './McpTester.module.css';
 
 // Derive MCP URL from API_BASE
@@ -53,7 +52,8 @@ export function McpTester() {
   const [copiedCommand, setCopiedCommand] = useState<string | null>(null);
 
   // Fetch projects to get current project slug
-  const { data: projects } = useSWR<Project[]>('projects', api.listProjects);
+  const { data: projectsData } = useSWR('projects', () => api.listProjects());
+  const projects = projectsData?.projects;
   const currentProject = projects?.find((p) => p.id === selectedProjectId);
 
   const clientRef = useRef<JSONRPCClient | null>(null);

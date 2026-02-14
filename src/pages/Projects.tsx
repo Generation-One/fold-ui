@@ -65,7 +65,7 @@ export function Projects() {
   const [groupNames, setGroupNames] = useState<string[]>([]);
   const [projectGroup, setProjectGroup] = useState('');
 
-  const { data: projectsData, isLoading } = useSWR('projects', () => api.listProjects({ limit: PAGE_SIZE, offset: 0 }), {
+  const { isLoading } = useSWR('projects', () => api.listProjects({ limit: PAGE_SIZE, offset: 0 }), {
     refreshInterval: 10000,
     onSuccess: (data) => {
       setAllProjects(data.projects);

@@ -2,7 +2,6 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useSWR from 'swr';
 import { api } from '../../lib/api';
-import type { Project } from '../../lib/api';
 import styles from './ui.module.css';
 
 interface ProjectSelectorProps {
@@ -16,7 +15,8 @@ export function ProjectSelector({ value, onChange, placeholder = 'Select project
   const ref = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
-  const { data: projects } = useSWR<Project[]>('projects', api.listProjects);
+  const { data: projectsData } = useSWR('projects', () => api.listProjects());
+  const projects = projectsData?.projects;
 
   const selectedProject = projects?.find((p) => p.id === value);
 
