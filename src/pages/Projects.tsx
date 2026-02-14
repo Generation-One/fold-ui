@@ -54,9 +54,84 @@ export function Projects() {
     return token ? `${base}?token=${encodeURIComponent(token)}` : base;
   };
 
-  const { data: projects, isLoading } = useSWR<Project[]>('projects', api.listProjects, {
+  // Pagination state
+  const PAGE_SIZE = 50;
+  const [allProjects, setAllProjects] = useState<Project[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  // Groups for autocomplete
+  const [groupNames, setGroupNames] = useState<string[]>([]);
+  const [projectGroup, setProjectGroup] = useState('');
+
+  const { data: projectsData, isLoading } = useSWR('projects', () => api.listProjects({ limit: PAGE_SIZE, offset: 0 }), {
     refreshInterval: 10000,
+    onSuccess: (data) => {
+      setAllProjects(data.projects);
+      setTotal(data.total);
+    },
   });
+
+  // Fetch group names for autocomplete
+  useEffect(() => {
+    api.getProjectGroups().then((res) => setGroupNames(res.groups)).catch(() => {});
+  }, [allProjects]);
+
+  // Load more projects
+  const loadMore = useCallback(async () => {
+    if (loadingMore || allProjects.length >= total) return;
+    setLoadingMore(true);
+    try {
+      const result = await api.listProjects({ limit: PAGE_SIZE, offset: allProjects.length });
+      setAllProjects((prev) => [...prev, ...result.projects]);
+    } catch {
+      // ignore
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [allProjects.length, total, loadingMore]);
+
+  // Intersection observer for infinite scroll
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) loadMore();
+      },
+      { rootMargin: '200px' }
+    );
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [loadMore]);
+
+  const projects = allProjects;
+
+  // Group projects
+  const groupedProjects = useMemo(() => {
+    if (!projects?.length) return [];
+    const groups = new Map<string, Project[]>();
+    const ungrouped: Project[] = [];
+    for (const p of projects) {
+      if (p.project_group) {
+        if (!groups.has(p.project_group)) groups.set(p.project_group, []);
+        groups.get(p.project_group)!.push(p);
+      } else {
+        ungrouped.push(p);
+      }
+    }
+    const result: { group: string | null; projects: Project[] }[] = [];
+    // Sorted groups first
+    for (const [name, projs] of [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
+      result.push({ group: name, projects: projs });
+    }
+    // Ungrouped at the bottom
+    if (ungrouped.length > 0) {
+      result.push({ group: null, projects: ungrouped });
+    }
+    return result;
+  }, [projects]);
 
   // Determine if auth is resolved (user has selected an account or entered a manual token)
   const authResolved = provider === 'local' || (
@@ -206,6 +281,7 @@ export function Projects() {
     setProjectName('');
     setProjectSlug('');
     setProjectDescription('');
+    setProjectGroup('');
     setError(null);
   };
 
@@ -219,6 +295,7 @@ export function Projects() {
       slug: projectSlug,
       description: projectDescription || undefined,
       provider,
+      project_group: projectGroup || undefined,
     };
 
     const formData = new FormData(e.currentTarget);
@@ -243,6 +320,8 @@ export function Projects() {
 
     try {
       await api.createProject(data);
+      // Reset and refetch
+      setAllProjects([]);
       mutate('projects');
       setIsCreateOpen(false);
       resetForm();
@@ -335,76 +414,96 @@ export function Projects() {
           }}
         />
       ) : (
-        <div className={styles.projectGrid}>
-          {projects?.map((project) => (
-            <motion.div
-              key={project.id}
-              className={styles.projectCard}
-              onClick={() => {
-                selectProject(project.id);
-                navigate(`/projects/${project.id}`);
-              }}
-              style={{ cursor: 'pointer' }}
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.2 }}
-            >
-              <div className={styles.projectHeader}>
-                <div>
-                  <h3 className={styles.projectName}>{project.name}</h3>
-                  <span className={styles.projectSlug}>{project.slug}</span>
-                </div>
-                <div className={styles.projectActions}>
-                  <button
-                    className={`${styles.actionBtn} ${styles.danger}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDelete(project);
+        <div>
+          {groupedProjects.map(({ group, projects: groupProjects }) => (
+            <div key={group ?? '__ungrouped'} className={styles.groupSection}>
+              {group && <h2 className={styles.groupHeader}>{group}</h2>}
+              {!group && groupedProjects.length > 1 && <h2 className={styles.groupHeader}>Ungrouped</h2>}
+              <div className={styles.projectGrid}>
+                {groupProjects.map((project) => (
+                  <motion.div
+                    key={project.id}
+                    className={styles.projectCard}
+                    onClick={() => {
+                      selectProject(project.id);
+                      navigate(`/projects/${project.id}`);
                     }}
-                    title="Delete project"
+                    style={{ cursor: 'pointer' }}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.2 }}
                   >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                      <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
+                    <div className={styles.projectHeader}>
+                      <div>
+                        <h3 className={styles.projectName}>{project.name}</h3>
+                        <span className={styles.projectSlug}>{project.slug}</span>
+                        {project.project_group && (
+                          <span className={styles.groupBadge}>{project.project_group}</span>
+                        )}
+                      </div>
+                      <div className={styles.projectActions}>
+                        <button
+                          className={`${styles.actionBtn} ${styles.danger}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(project);
+                          }}
+                          title="Delete project"
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
 
-              {project.description && (
-                <p className={styles.projectDescription}>{project.description}</p>
-              )}
+                    {project.description && (
+                      <p className={styles.projectDescription}>{project.description}</p>
+                    )}
 
-              <div className={styles.projectMeta}>
-                <div className={styles.metaItem}>
-                  {project.provider === 'github' ? (
-                    <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
-                      <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
-                    </svg>
-                  ) : project.provider === 'gitlab' ? (
-                    <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
-                      <path d="M22.65 14.39L12 22.13 1.35 14.39a.84.84 0 01-.3-.94l1.22-3.78 2.44-7.51A.42.42 0 014.82 2a.43.43 0 01.58 0 .42.42 0 01.11.18l2.44 7.49h8.1l2.44-7.51A.42.42 0 0118.6 2a.43.43 0 01.58 0 .42.42 0 01.11.18l2.44 7.51L23 13.45a.84.84 0 01-.35.94z"/>
-                    </svg>
-                  ) : (
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
-                      <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
-                    </svg>
-                  )}
-                  <span className={styles.metaValue}>
-                    {project.provider === 'local' ? 'Local' : `${project.remote_owner}/${project.remote_repo}`}
-                  </span>
-                </div>
-                <div className={styles.metaItem}>
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                    <line x1="16" y1="2" x2="16" y2="6" />
-                    <line x1="8" y1="2" x2="8" y2="6" />
-                    <line x1="3" y1="10" x2="21" y2="10" />
-                  </svg>
-                  <span className={styles.metaValue}>{formatDate(project.created_at)}</span>
-                </div>
+                    <div className={styles.projectMeta}>
+                      <div className={styles.metaItem}>
+                        {project.provider === 'github' ? (
+                          <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
+                            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+                          </svg>
+                        ) : project.provider === 'gitlab' ? (
+                          <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
+                            <path d="M22.65 14.39L12 22.13 1.35 14.39a.84.84 0 01-.3-.94l1.22-3.78 2.44-7.51A.42.42 0 014.82 2a.43.43 0 01.58 0 .42.42 0 01.11.18l2.44 7.49h8.1l2.44-7.51A.42.42 0 0118.6 2a.43.43 0 01.58 0 .42.42 0 01.11.18l2.44 7.51L23 13.45a.84.84 0 01-.35.94z"/>
+                          </svg>
+                        ) : (
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="14" height="14">
+                            <path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                          </svg>
+                        )}
+                        <span className={styles.metaValue}>
+                          {project.provider === 'local' ? 'Local' : `${project.remote_owner}/${project.remote_repo}`}
+                        </span>
+                      </div>
+                      <div className={styles.metaItem}>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                          <line x1="16" y1="2" x2="16" y2="6" />
+                          <line x1="8" y1="2" x2="8" y2="6" />
+                          <line x1="3" y1="10" x2="21" y2="10" />
+                        </svg>
+                        <span className={styles.metaValue}>{formatDate(project.created_at)}</span>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
               </div>
-            </motion.div>
+            </div>
           ))}
+          {/* Infinite scroll sentinel */}
+          <div ref={sentinelRef} className={styles.loadMore}>
+            {loadingMore && <span className={styles.loading}>Loading more...</span>}
+            {!loadingMore && allProjects.length < total && (
+              <button className={styles.loadMoreBtn} onClick={loadMore}>
+                Load more ({allProjects.length} of {total})
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -746,6 +845,28 @@ export function Projects() {
               value={projectDescription}
               onChange={(e) => setProjectDescription(e.target.value)}
             />
+          </div>
+
+          <div className={styles.formGroup}>
+            <label className={styles.label} htmlFor="project_group">
+              Group
+            </label>
+            <input
+              type="text"
+              id="project_group"
+              name="project_group"
+              className={styles.input}
+              placeholder="e.g. Frontend, Backend, Infrastructure"
+              value={projectGroup}
+              onChange={(e) => setProjectGroup(e.target.value)}
+              list="project-group-options"
+            />
+            <datalist id="project-group-options">
+              {groupNames.map((g) => (
+                <option key={g} value={g} />
+              ))}
+            </datalist>
+            <small className={styles.hint}>Optional — group related projects together</small>
           </div>
         </form>
       </Modal>

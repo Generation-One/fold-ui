@@ -395,10 +395,19 @@ function ProjectInfo({ project, onUpdate }: { project: Project; onUpdate: () => 
   const [editName, setEditName] = useState(project.name);
   const [editDesc, setEditDesc] = useState(project.description || '');
   const [editBranch, setEditBranch] = useState(project.remote_branch || '');
+  const [editGroup, setEditGroup] = useState(project.project_group || '');
+  const [groupNames, setGroupNames] = useState<string[]>([]);
   const [branches, setBranches] = useState<GitHubBranch[]>([]);
   const [loadingBranches, setLoadingBranches] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Fetch group names when entering edit mode
+  useEffect(() => {
+    if (editing) {
+      api.getProjectGroups().then((res) => setGroupNames(res.groups)).catch(() => {});
+    }
+  }, [editing]);
 
   // Fetch branches when entering edit mode on a remote project
   useEffect(() => {
@@ -419,6 +428,7 @@ function ProjectInfo({ project, onUpdate }: { project: Project; onUpdate: () => 
         name: editName !== project.name ? editName : undefined,
         description: editDesc !== (project.description || '') ? editDesc : undefined,
         remote_branch: isRemote && editBranch !== (project.remote_branch || '') ? editBranch : undefined,
+        project_group: editGroup !== (project.project_group || '') ? (editGroup || undefined) : undefined,
       } as Partial<Project>);
       onUpdate();
       setEditing(false);
@@ -433,6 +443,7 @@ function ProjectInfo({ project, onUpdate }: { project: Project; onUpdate: () => 
     setEditName(project.name);
     setEditDesc(project.description || '');
     setEditBranch(project.remote_branch || '');
+    setEditGroup(project.project_group || '');
     setSaveError(null);
     setEditing(false);
   };
@@ -509,6 +520,21 @@ function ProjectInfo({ project, onUpdate }: { project: Project; onUpdate: () => 
                 )}
               </label>
             )}
+            <label className={styles.editLabel}>
+              Group
+              <input
+                className={styles.editInput}
+                value={editGroup}
+                onChange={e => setEditGroup(e.target.value)}
+                placeholder="e.g. Frontend, Backend"
+                list="edit-project-group-options"
+              />
+              <datalist id="edit-project-group-options">
+                {groupNames.map(g => (
+                  <option key={g} value={g} />
+                ))}
+              </datalist>
+            </label>
           </div>
         ) : (
           <div className={styles.detailFields}>
@@ -520,6 +546,12 @@ function ProjectInfo({ project, onUpdate }: { project: Project; onUpdate: () => 
               <span className={styles.detailLabel}>Description</span>
               <span className={styles.detailValue}>{project.description || <span className={styles.emptyValue}>No description</span>}</span>
             </div>
+            {project.project_group && (
+              <div className={styles.detailRow}>
+                <span className={styles.detailLabel}>Group</span>
+                <span className={styles.detailValue}>{project.project_group}</span>
+              </div>
+            )}
           </div>
         )}
       </div>

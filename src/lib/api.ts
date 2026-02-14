@@ -101,6 +101,8 @@ export interface Project {
   ignored_commit_authors?: string[];
   /** Whether a webhook is registered on the remote provider */
   webhook_registered?: boolean;
+  /** Optional group label for organizing projects */
+  project_group?: string;
   memory_count?: number;
   created_at: string;
   updated_at: string;
@@ -117,6 +119,7 @@ export interface CreateProjectRequest {
   remote_branch?: string;
   access_token?: string;
   connected_account_id?: string;
+  project_group?: string;
 }
 
 export interface ConnectedAccount {
@@ -591,8 +594,17 @@ class FoldApiClient {
   }
 
   // Protected endpoints
-  async getProjects(): Promise<{ projects: Project[]; total: number }> {
-    return this._fetch<{ projects: Project[]; total: number }>('/projects');
+  async getProjects(params?: { limit?: number; offset?: number; group?: string }): Promise<{ projects: Project[]; total: number; offset: number; limit: number }> {
+    const searchParams = new URLSearchParams();
+    if (params?.limit) searchParams.set('limit', String(params.limit));
+    if (params?.offset) searchParams.set('offset', String(params.offset));
+    if (params?.group) searchParams.set('group', params.group);
+    const qs = searchParams.toString();
+    return this._fetch<{ projects: Project[]; total: number; offset: number; limit: number }>(`/projects${qs ? '?' + qs : ''}`);
+  }
+
+  async getProjectGroups(): Promise<{ groups: string[] }> {
+    return this._fetch<{ groups: string[] }>('/projects/groups');
   }
 
   async getProject(id: string): Promise<Project> {
@@ -1111,10 +1123,10 @@ export const api = {
   },
 
   // Projects
-  listProjects: async (): Promise<Project[]> => {
-    const result = await apiClient.getProjects();
-    return result.projects;
+  listProjects: async (params?: { limit?: number; offset?: number; group?: string }): Promise<{ projects: Project[]; total: number }> => {
+    return apiClient.getProjects(params);
   },
+  getProjectGroups: () => apiClient.getProjectGroups(),
   getProject: (id: string) => apiClient.getProject(id),
   getProjectStatus: (id: string) => apiClient.getProjectStatus(id),
   createProject: (data: CreateProjectRequest) => apiClient.createProject(data),
