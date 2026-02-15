@@ -5,7 +5,7 @@ import useSWR, { mutate } from 'swr';
 import { api } from '../lib/api';
 import { useProject } from '../stores/project';
 import { useAuth } from '../stores/auth';
-import type { Memory, MemorySource, Project } from '../lib/api';
+import type { Memory, MemorySource } from '../lib/api';
 import { Modal, EmptyState, SourceBadge, Pagination } from '../components/ui';
 import { MemoryDetailModal } from '../components/MemoryDetailModal';
 import styles from './Memories.module.css';
@@ -135,7 +135,7 @@ export function Memories() {
   };
 
   // Projects are fetched by ProjectSelector, but we warm the cache here
-  useSWR<Project[]>('projects', api.listProjects);
+  useSWR('projects', () => api.listProjects());
 
   // Calculate date range based on preset or custom values
   const getDateFilters = () => {

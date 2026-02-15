@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../lib/api';
 import { useProject } from '../stores/project';
-import type { SearchResult, MemorySource, Project } from '../lib/api';
+import type { SearchResult, MemorySource } from '../lib/api';
 import { EmptyState, SourceBadge } from '../components/ui';
 import { MemoryDetailModal } from '../components/MemoryDetailModal';
 import useSWR from 'swr';
@@ -34,7 +34,7 @@ export function Search() {
   const [selectedResult, setSelectedResult] = useState<SearchResult | null>(null);
 
   // Projects are fetched by ProjectSelector, but we warm the cache here
-  useSWR<Project[]>('projects', api.listProjects);
+  useSWR('projects', () => api.listProjects());
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
