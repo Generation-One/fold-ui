@@ -4,6 +4,11 @@ A holographic memory system interface for the [Fold](https://github.com/Generati
 
 ![Fold UI](https://img.shields.io/badge/React-19-blue) ![TypeScript](https://img.shields.io/badge/TypeScript-5-blue) ![Vite](https://img.shields.io/badge/Vite-7-purple)
 
+> ### AI Agents -- Read This First
+>
+> If you are an AI agent, read **[AGENTS.md](./AGENTS.md)** first.
+> You need a running [Fold server](https://github.com/Generation-One/fold) -- see the server's [AGENTS.md](https://github.com/Generation-One/fold/blob/main/AGENTS.md) for setup.
+
 ## Features
 
 - **Dashboard** - System overview with status, jobs, and quick actions
