@@ -46,6 +46,9 @@ export function Projects() {
   const [projectName, setProjectName] = useState('');
   const [projectSlug, setProjectSlug] = useState('');
   const [projectDescription, setProjectDescription] = useState('');
+  const [includePatterns, setIncludePatterns] = useState('');
+  const [excludePatterns, setExcludePatterns] = useState('');
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   /** Build the connect URL with the auth token as a query param. */
   const connectUrl = (prov: string) => {
@@ -282,6 +285,9 @@ export function Projects() {
     setProjectSlug('');
     setProjectDescription('');
     setProjectGroup('');
+    setIncludePatterns('');
+    setExcludePatterns('');
+    setShowAdvanced(false);
     setError(null);
   };
 
@@ -290,12 +296,21 @@ export function Projects() {
     setCreating(true);
     setError(null);
 
+    const includeArr = includePatterns.trim()
+      ? includePatterns.split('\n').map((s) => s.trim()).filter(Boolean)
+      : undefined;
+    const excludeArr = excludePatterns.trim()
+      ? excludePatterns.split('\n').map((s) => s.trim()).filter(Boolean)
+      : undefined;
+
     const data: CreateProjectRequest = {
       name: projectName,
       slug: projectSlug,
       description: projectDescription || undefined,
       provider,
       project_group: projectGroup || undefined,
+      include: includeArr,
+      exclude: excludeArr,
     };
 
     const formData = new FormData(e.currentTarget);
@@ -867,6 +882,64 @@ export function Projects() {
               ))}
             </datalist>
             <small className={styles.hint}>Optional — group related projects together</small>
+          </div>
+
+          <div className={styles.formGroup}>
+            <button
+              type="button"
+              className={styles.advancedToggle}
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--text-secondary)',
+                cursor: 'pointer',
+                padding: '4px 0',
+                fontSize: '0.85rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+              }}
+            >
+              <span style={{ transform: showAdvanced ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s', display: 'inline-block' }}>&#9654;</span>
+              Advanced — File Filtering
+            </button>
+            {showAdvanced && (
+              <>
+                <div className={styles.formGroup} style={{ marginTop: '8px' }}>
+                  <label className={styles.label} htmlFor="include_patterns">
+                    Include Patterns
+                  </label>
+                  <textarea
+                    id="include_patterns"
+                    className={styles.textarea}
+                    placeholder="**/*"
+                    value={includePatterns}
+                    onChange={(e) => setIncludePatterns(e.target.value)}
+                    rows={3}
+                  />
+                  <small className={styles.hint}>
+                    One glob pattern per line. Defaults to <code>**/*</code> (all files).
+                  </small>
+                </div>
+                <div className={styles.formGroup}>
+                  <label className={styles.label} htmlFor="exclude_patterns">
+                    Exclude Patterns
+                  </label>
+                  <textarea
+                    id="exclude_patterns"
+                    className={styles.textarea}
+                    placeholder={'docs/**\ntest/**'}
+                    value={excludePatterns}
+                    onChange={(e) => setExcludePatterns(e.target.value)}
+                    rows={3}
+                  />
+                  <small className={styles.hint}>
+                    One glob per line. Safety ignores (node_modules, .git, target, etc.) always apply.
+                  </small>
+                </div>
+              </>
+            )}
           </div>
         </form>
       </Modal>

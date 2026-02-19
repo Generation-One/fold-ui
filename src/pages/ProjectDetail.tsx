@@ -396,6 +396,8 @@ function ProjectInfo({ project, onUpdate }: { project: Project; onUpdate: () => 
   const [editDesc, setEditDesc] = useState(project.description || '');
   const [editBranch, setEditBranch] = useState(project.remote_branch || '');
   const [editGroup, setEditGroup] = useState(project.project_group || '');
+  const [editInclude, setEditInclude] = useState((project.include || []).join('\n'));
+  const [editExclude, setEditExclude] = useState((project.exclude || []).join('\n'));
   const [groupNames, setGroupNames] = useState<string[]>([]);
   const [branches, setBranches] = useState<GitHubBranch[]>([]);
   const [loadingBranches, setLoadingBranches] = useState(false);
@@ -424,11 +426,22 @@ function ProjectInfo({ project, onUpdate }: { project: Project; onUpdate: () => 
     setSaving(true);
     setSaveError(null);
     try {
+      const newInclude = editInclude.trim()
+        ? editInclude.split('\n').map((s: string) => s.trim()).filter(Boolean)
+        : [];
+      const newExclude = editExclude.trim()
+        ? editExclude.split('\n').map((s: string) => s.trim()).filter(Boolean)
+        : [];
+      const oldInclude = (project.include || []).join('\n');
+      const oldExclude = (project.exclude || []).join('\n');
+
       await api.updateProject(project.id, {
         name: editName !== project.name ? editName : undefined,
         description: editDesc !== (project.description || '') ? editDesc : undefined,
         remote_branch: isRemote && editBranch !== (project.remote_branch || '') ? editBranch : undefined,
         project_group: editGroup !== (project.project_group || '') ? (editGroup || undefined) : undefined,
+        include: editInclude.trim() !== oldInclude ? newInclude : undefined,
+        exclude: editExclude.trim() !== oldExclude ? newExclude : undefined,
       } as Partial<Project>);
       onUpdate();
       setEditing(false);
@@ -444,6 +457,8 @@ function ProjectInfo({ project, onUpdate }: { project: Project; onUpdate: () => 
     setEditDesc(project.description || '');
     setEditBranch(project.remote_branch || '');
     setEditGroup(project.project_group || '');
+    setEditInclude((project.include || []).join('\n'));
+    setEditExclude((project.exclude || []).join('\n'));
     setSaveError(null);
     setEditing(false);
   };
@@ -535,6 +550,32 @@ function ProjectInfo({ project, onUpdate }: { project: Project; onUpdate: () => 
                 ))}
               </datalist>
             </label>
+            <label className={styles.editLabel}>
+              Include Patterns
+              <textarea
+                className={styles.editTextarea}
+                value={editInclude}
+                onChange={e => setEditInclude(e.target.value)}
+                placeholder="**/*"
+                rows={4}
+              />
+              <small className={styles.hint}>
+                One glob pattern per line. Defaults to <code>**/*</code> (all files).
+              </small>
+            </label>
+            <label className={styles.editLabel}>
+              Exclude Patterns
+              <textarea
+                className={styles.editTextarea}
+                value={editExclude}
+                onChange={e => setEditExclude(e.target.value)}
+                placeholder={'docs/**\ntest/**'}
+                rows={4}
+              />
+              <small className={styles.hint}>
+                One glob per line. Safety ignores (node_modules, .git, target, etc.) always apply.
+              </small>
+            </label>
           </div>
         ) : (
           <div className={styles.detailFields}>
@@ -550,6 +591,18 @@ function ProjectInfo({ project, onUpdate }: { project: Project; onUpdate: () => 
               <div className={styles.detailRow}>
                 <span className={styles.detailLabel}>Group</span>
                 <span className={styles.detailValue}>{project.project_group}</span>
+              </div>
+            )}
+            <div className={styles.detailRow}>
+              <span className={styles.detailLabel}>Include</span>
+              <span className={styles.detailValue}>
+                {(project.include?.length ? project.include : ['**/*']).join(', ')}
+              </span>
+            </div>
+            {(project.exclude?.length ?? 0) > 0 && (
+              <div className={styles.detailRow}>
+                <span className={styles.detailLabel}>Exclude</span>
+                <span className={styles.detailValue}>{project.exclude!.join(', ')}</span>
               </div>
             )}
           </div>

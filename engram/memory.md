@@ -23,6 +23,9 @@ Background project knowledge. Check when the conversation touches something rele
 Recent session context. What just happened, what was decided.
 <!-- 36 max. FIFO. Managed by Engram. Do not edit manually. -->
 
+- [Include/exclude patterns UI](events/2026/02/19.md) -- added file filtering pattern fields to project creation and edit pages <!-- hits:0 -->
+- [Pattern editing UX decision](concepts/decisions/pattern-editing-ux.md) -- newline-separated textareas for include/exclude patterns, converted to arrays for API <!-- hits:0 -->
+
 
 ## Archive
 Notable project history that did not make Core but is worth surfacing.

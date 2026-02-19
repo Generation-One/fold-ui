@@ -104,6 +104,10 @@ export interface Project {
   /** Optional group label for organizing projects */
   project_group?: string;
   memory_count?: number;
+  // Glob patterns for files to include (defaults to ["**/*"])
+  include?: string[];
+  // User-configured exclude patterns
+  exclude?: string[];
   created_at: string;
   updated_at: string;
 }
@@ -120,6 +124,10 @@ export interface CreateProjectRequest {
   access_token?: string;
   connected_account_id?: string;
   project_group?: string;
+  // Glob patterns for files to include (defaults to ["**/*"])
+  include?: string[];
+  // Glob patterns for files to exclude (additive on top of safety ignores)
+  exclude?: string[];
 }
 
 export interface ConnectedAccount {
